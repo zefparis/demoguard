@@ -1,5 +1,5 @@
 /**
- * DemoGuard — PrepScreen (device + permissions collection)
+ * DemoGuard — PrepScreen (device + permissions + continuous signals start)
  *
  * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
  * Patents Pending FR2514274 | FR2514546
@@ -13,11 +13,12 @@ import { PhaseHeader } from '../components/PhaseHeader';
 interface Props {
   onDeviceCollected: (device: ReturnType<typeof collectDeviceContext>) => void;
   onPermissionsCollected: (perms: Awaited<ReturnType<typeof collectPermissions>>) => void;
+  onContinuousSignalsStart: (perms: Awaited<ReturnType<typeof collectPermissions>>) => Promise<void>;
   onReady: () => void;
   onError: (reason: string) => void;
 }
 
-export function PrepScreen({ onDeviceCollected, onPermissionsCollected, onReady, onError }: Props) {
+export function PrepScreen({ onDeviceCollected, onPermissionsCollected, onContinuousSignalsStart, onReady, onError }: Props) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -29,6 +30,9 @@ export function PrepScreen({ onDeviceCollected, onPermissionsCollected, onReady,
         const perms = await collectPermissions();
         if (cancelled) return;
         onPermissionsCollected(perms);
+
+        await onContinuousSignalsStart(perms);
+        if (cancelled) return;
 
         onReady();
       } catch (err) {

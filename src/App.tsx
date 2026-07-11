@@ -8,12 +8,13 @@
  * Patents Pending FR2514274 | FR2514546
  */
 
-import { useReducer, useRef, useCallback } from 'react';
+import { useReducer, useRef, useCallback, useEffect } from 'react';
 import { demoguardReducer, initialState } from './state/demoguardReducer';
 import { DemoGuardProvider } from './state/demoguardContext';
 import type { SensitiveRef } from './state/demoguardContext';
 import { useBehaviorSession } from './hooks/useBehaviorSession';
 import { useLockedShell } from './hooks/useLockedShell';
+import { useContinuousSignals } from './hooks/useContinuousSignals';
 import { buildDemoGuardPayload } from './payload/buildDemoGuardPayload';
 import { submitDemoGuard } from './demoguard/api';
 import type { DemoGuardSelfieSignal, DemoGuardVoiceSignal, VoiceDiagnosticsSafe } from './demoguard/types';
@@ -38,6 +39,11 @@ export default function App() {
   const [state, dispatch] = useReducer(demoguardReducer, initialState);
   const { session, reset, getPayload, getTouchDiagnostics } = useBehaviorSession();
   const { lockedHeight, showRotateOverlay } = useLockedShell(state.phase);
+  const continuousSignals = useContinuousSignals();
+
+  useEffect(() => {
+    continuousSignals.setPhase(state.phase);
+  }, [state.phase]);
 
   const sensitiveRef = useRef<SensitiveRef>({
     selfie_b64: null,
@@ -71,6 +77,11 @@ export default function App() {
     dispatch({ type: 'SUBMIT' });
 
     try {
+      const deviceSignals = continuousSignals.stop();
+      if (Object.keys(deviceSignals).length > 0) {
+        dispatch({ type: 'DEVICE_SIGNALS_COLLECTED', signals: deviceSignals });
+      }
+
       const behaviorPayload = getPayload();
       const behaviorDiag = getTouchDiagnostics();
       dispatch({ type: 'BEHAVIOR_COLLECTED', payload: behaviorPayload, touchDiag: behaviorDiag });
@@ -81,7 +92,7 @@ export default function App() {
     } catch (err) {
       dispatch({ type: 'ERROR', reason: err instanceof Error ? err.message : 'Submission failed' });
     }
-  }, [state, getPayload, getTouchDiagnostics]);
+  }, [state, getPayload, getTouchDiagnostics, continuousSignals]);
 
   const handleReset = useCallback(() => {
     dispatch({ type: 'RESET' });
@@ -116,6 +127,9 @@ export default function App() {
           <PrepScreen
             onDeviceCollected={(device) => dispatch({ type: 'DEVICE_COLLECTED', device })}
             onPermissionsCollected={(permissions) => dispatch({ type: 'PERMISSIONS_COLLECTED', permissions })}
+            onContinuousSignalsStart={async (perms) => {
+              await continuousSignals.start({ motion: perms.motion, orientation: perms.orientation });
+            }}
             onReady={() => dispatch({ type: 'PREP_READY' })}
             onError={(reason) => dispatch({ type: 'ERROR', reason })}
           />
@@ -192,9 +206,8 @@ export default function App() {
 
         {state.phase === 'device_signals' && (
           <DeviceSignalsScreen
-            onCollected={(signals) => dispatch({ type: 'DEVICE_SIGNALS_COLLECTED', signals })}
+            signals={state.signals}
             onContinue={() => dispatch({ type: 'DEVICE_SIGNALS_CONTINUE' })}
-            onError={(reason) => dispatch({ type: 'ERROR', reason })}
           />
         )}
 
