@@ -18,7 +18,7 @@ function computeAudioSizeBucket(byteLength: number): DemoGuardVoiceDiagnostic['a
   return 'large';
 }
 
-export const VOICE_DURATION_MS = 4000;
+export const VOICE_DURATION_MS = 7000;
 
 export type AudioCollectorError =
   | { kind: 'permission-denied' }

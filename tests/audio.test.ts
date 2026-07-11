@@ -10,6 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { encodeWav, recordAudio } from '../src/lib/audio';
+import { VOICE_DURATION_MS } from '../src/demoguard/collectors/audioCollector';
 
 // ─── Mocks ───────────────────────────────────────────────────────
 
@@ -247,6 +248,77 @@ describe('recordAudio (ScriptProcessorNode)', () => {
 
     expect(stopSpy).toHaveBeenCalled();
     expect(closeSpy).toHaveBeenCalled();
+  });
+});
+
+// ─── VOICE_DURATION_MS constant test ─────────────────────────────
+
+describe('VOICE_DURATION_MS constant', () => {
+  it('is set to 7000ms (not the old 4000ms)', () => {
+    expect(VOICE_DURATION_MS).toBe(7000);
+  });
+
+  it('recordAudio with 7000ms produces ~7s buffer at 16kHz', async () => {
+    vi.useFakeTimers();
+    const originalMediaDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
+    const originalAudioContext = window.AudioContext;
+
+    const mockStream = { getTracks: vi.fn(() => [{ stop: vi.fn() }]) };
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: vi.fn(() => Promise.resolve(mockStream)) },
+      configurable: true,
+      writable: true,
+    });
+
+    const mockProcessor: MockProcessor = {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      onaudioprocess: null,
+    };
+
+    const mockCtx: MockAudioContext = {
+      sampleRate: 16000,
+      destination: {},
+      createMediaStreamSource: vi.fn((): MockSource => ({
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      })),
+      createScriptProcessor: vi.fn(() => mockProcessor),
+      close: vi.fn(() => Promise.resolve()),
+    };
+    window.AudioContext = vi.fn(() => mockCtx) as unknown as typeof window.AudioContext;
+
+    // Simulate ~7s of audio at 16kHz: 28 frames * 4096 = 114688 samples
+    const framesNeeded = Math.ceil((7000 * 16000) / 1000 / 4096); // 28 frames
+    // Deliver frames synchronously before advancing timers
+    const recordPromise = recordAudio(7000);
+    // onaudioprocess is set synchronously after getUserMedia resolves
+    await Promise.resolve(); // flush microtask for getUserMedia
+    if (mockProcessor.onaudioprocess) {
+      for (let i = 0; i < framesNeeded; i++) {
+        mockProcessor.onaudioprocess({
+          inputBuffer: { getChannelData: () => new Float32Array(4096).fill(0.5) },
+        });
+      }
+    }
+    vi.advanceTimersByTime(7000);
+
+    const result = await recordPromise;
+    const samples = result.samples[0];
+
+    // 28 frames * 4096 = 114688 samples at 16kHz = 7.168s
+    expect(samples.length).toBe(framesNeeded * 4096);
+    expect(samples.length).toBeGreaterThan(100000); // well above 4s (64000)
+
+    vi.useRealTimers();
+    if (originalMediaDevices) {
+      Object.defineProperty(navigator, 'mediaDevices', originalMediaDevices);
+    } else {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+    if (originalAudioContext) {
+      window.AudioContext = originalAudioContext;
+    }
   });
 });
 
