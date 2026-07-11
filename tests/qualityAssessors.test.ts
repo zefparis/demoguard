@@ -104,7 +104,7 @@ describe('DG-4: Signal completeness with device signals', () => {
   it('0% with no signals', async () => {
     const { computeSignalCompleteness } = await import('../src/demoguard/quality/signalCompleteness');
     const score = computeSignalCompleteness({
-      selfie: null, reaction: null, voice: null,
+      selfie: null, voice: null,
       motion: null, orientation: null, touch: null, visibility: null, network: null,
     });
     expect(score).toBe(0);
@@ -113,7 +113,7 @@ describe('DG-4: Signal completeness with device signals', () => {
   it('increases with device signals added', async () => {
     const { computeSignalCompleteness } = await import('../src/demoguard/quality/signalCompleteness');
     const base = {
-      selfie: null, reaction: null, voice: null,
+      selfie: null, voice: null,
       motion: null, orientation: null, touch: null, visibility: null, network: null,
     };
     const score0 = computeSignalCompleteness(base);
@@ -127,7 +127,7 @@ describe('DG-4: Signal completeness with device signals', () => {
   it('unsupported optional does not penalize like missing critical', async () => {
     const { computeSignalCompleteness } = await import('../src/demoguard/quality/signalCompleteness');
     const withUnsupported = {
-      selfie: null, reaction: null, voice: null,
+      selfie: null, voice: null,
       motion: { supported: false, permission: 'unsupported', sample_count: 0, quality: 'unsupported' } as const,
       orientation: { supported: false, permission: 'unsupported', sample_count: 0, changes: 0, quality: 'unsupported' } as const,
       touch: null, visibility: null, network: null,
@@ -136,11 +136,10 @@ describe('DG-4: Signal completeness with device signals', () => {
     expect(scoreUnsupported).toBeGreaterThan(0);
   });
 
-  it('100% when all 14 slots filled (8 original + 6 cognitive)', async () => {
+  it('100% when all 13 slots filled (7 original + 6 cognitive)', async () => {
     const { computeSignalCompleteness } = await import('../src/demoguard/quality/signalCompleteness');
     const score = computeSignalCompleteness({
       selfie: { captured: true, quality: 'ok', width: 640, height: 480 },
-      reaction: { reaction_ms: 300, too_fast: false, too_slow: false, quality: 'ok' },
       voice: { recorded: true, duration_ms: 4000, challenge_id: 'dg_voice_TEST', quality: 'ok', mfcc_available: true },
       motion: { supported: true, permission: 'granted', sample_count: 50, variance: 0.5, quality: 'ok' },
       orientation: { supported: true, permission: 'granted', sample_count: 50, changes: 10, quality: 'ok' },

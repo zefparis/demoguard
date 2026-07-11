@@ -34,6 +34,9 @@ export function buildDemoGuardPayload(
 
   const signals: DemoGuardSignals = {
     selfie: state.signals.selfie ?? undefined,
+    // DEPRECATED V1 vestige — never implemented, replaced by cognitive.reflex (ReflexSignal).
+    // Kept as undefined for schema compat (HV Zod .optional() accepts absent key).
+    // See REACTION_SIGNAL_AUDIT_01.md — do NOT re-add a reaction collector.
     reaction: undefined,
     voice: state.signals.voice ?? undefined,
     motion: state.signals.motion ?? undefined,

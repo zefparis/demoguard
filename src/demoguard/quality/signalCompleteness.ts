@@ -3,8 +3,8 @@
  *
  * Returns a score in [0, 1] based on how many signal slots are filled.
  * Critical slots (selfie, voice) weigh more than optional ones.
- * 'reaction' is NOT a critical slot in standalone app (no separate reaction test).
  * Unsupported optional slots don't penalize the score.
+ * 'reaction' (V1 vestige) was removed from the signal schema — see REACTION_SIGNAL_AUDIT_01.md.
  *
  * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
  * Patents Pending FR2514274 | FR2514546

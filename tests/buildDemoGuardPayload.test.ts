@@ -39,7 +39,6 @@ const mockState: DemoGuardState = {
   },
   signals: {
     selfie: { captured: true, quality: 'ok', width: 1280, height: 960 },
-    reaction: null,
     voice: { recorded: true, quality: 'ok', challenge_id: 'test' },
     motion: { supported: true, permission: 'granted', sample_count: 50, variance: 0.5, quality: 'ok' },
     orientation: { supported: true, permission: 'granted', sample_count: 50, changes: 10, quality: 'ok' },
@@ -338,7 +337,7 @@ describe('buildDemoGuardPayload', () => {
 
   // ── GAP 0: null → undefined for signal slots (Zod .optional() rejects null) ──
 
-  it('GAP 0: reaction key absent from JSON when null (not serialized as null)', () => {
+  it('GAP 0: reaction key absent from JSON (deprecated, always undefined)', () => {
     const payload = buildDemoGuardPayload(mockState, null, null, {
       selfie_b64: null,
       voice_b64: null,
@@ -354,7 +353,6 @@ describe('buildDemoGuardPayload', () => {
       ...mockState,
       signals: {
         selfie: null,
-        reaction: null,
         voice: null,
         motion: null,
         orientation: null,

@@ -52,13 +52,6 @@ export interface DemoGuardSelfieSignal {
   height?: number;
 }
 
-export interface DemoGuardReactionSignal {
-  reaction_ms?: number;
-  too_fast: boolean;
-  too_slow: boolean;
-  quality: SignalQuality;
-}
-
 export interface DemoGuardVoiceSignal {
   recorded: boolean;
   duration_ms?: number;
@@ -160,7 +153,8 @@ export interface DemoGuardNetworkSignal {
 
 export interface DemoGuardSignals {
   selfie: DemoGuardSelfieSignal | null | undefined;
-  reaction: DemoGuardReactionSignal | null | undefined;
+  /** @deprecated V1 vestige — never populated. Replaced by cognitive.reflex (ReflexSignal). See REACTION_SIGNAL_AUDIT_01.md */
+  reaction?: undefined;
   voice: DemoGuardVoiceSignal | null | undefined;
   motion: DemoGuardMotionSignal | null | undefined;
   orientation: DemoGuardOrientationSignal | null | undefined;

@@ -55,7 +55,6 @@ export const initialState: DemoGuardState = {
   permissions: null,
   signals: {
     selfie: null,
-    reaction: null,
     voice: null,
     motion: null,
     orientation: null,

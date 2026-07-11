@@ -38,7 +38,6 @@ const mockState: DemoGuardState = {
   },
   signals: {
     selfie: { captured: true, quality: 'ok', width: 1280, height: 960 },
-    reaction: null,
     voice: { recorded: true, quality: 'ok', challenge_id: 'dg_vran_test01' },
     motion: { supported: true, permission: 'granted', sample_count: 50, variance: 0.5, quality: 'ok' },
     orientation: { supported: true, permission: 'granted', sample_count: 50, changes: 10, quality: 'ok' },
@@ -83,7 +82,7 @@ describe('empirical payload generation', () => {
     expect(fullPayload.demo_guard.signals.touchDiagnostics).toBeDefined();
     expect(fullPayload.demo_guard.signals.voiceDiagnostics).toBeDefined();
 
-    // Verify GAP 0: reaction (null) is absent from JSON, real signals are present
+    // Verify GAP 0: reaction (deprecated, always undefined) is absent from JSON, real signals are present
     const parsed = JSON.parse(json);
     expect(parsed.demo_guard.signals).not.toHaveProperty('reaction');
     expect(parsed.demo_guard.signals).toHaveProperty('selfie');
