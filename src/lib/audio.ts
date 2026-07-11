@@ -4,15 +4,6 @@ function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
 }
 
-function toMonoFloat32(audioBuffer: AudioBuffer): Float32Array {
-  if (audioBuffer.numberOfChannels === 1) return audioBuffer.getChannelData(0)
-  const left = audioBuffer.getChannelData(0)
-  const right = audioBuffer.getChannelData(1)
-  const out = new Float32Array(audioBuffer.length)
-  for (let i = 0; i < out.length; i += 1) out[i] = (left[i] + right[i]) * 0.5
-  return out
-}
-
 function resampleLinear(input: Float32Array, inputRate: number, outputRate: number): Float32Array {
   if (inputRate === outputRate) return input
   const ratio = outputRate / inputRate
@@ -221,33 +212,34 @@ export interface AudioRecordingResult {
 export async function recordAudio(durationMs: number): Promise<AudioRecordingResult> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm'
+  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+  const ctx = new AudioCtx()
+  const source = ctx.createMediaStreamSource(stream)
+  const processor = ctx.createScriptProcessor(4096, 1, 1)
+  const chunks: Float32Array[] = []
 
-  const recorder = new MediaRecorder(stream, { mimeType })
-  const chunks: BlobPart[] = []
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data)
+  source.connect(processor)
+  processor.connect(ctx.destination)
+  processor.onaudioprocess = (e) => {
+    chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))
   }
 
-  recorder.start()
   await new Promise<void>(resolve => setTimeout(resolve, durationMs))
-  recorder.stop()
 
-  const blob = await new Promise<Blob>((resolve) => {
-    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }))
-  })
-
+  processor.disconnect()
+  source.disconnect()
   stream.getTracks().forEach(t => t.stop())
+  await ctx.close()
 
-  const arrayBuffer = await blob.arrayBuffer()
-  const audioCtx = new AudioContext()
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0))
-  await audioCtx.close()
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0)
+  const mono = new Float32Array(totalLen)
+  let off = 0
+  for (const c of chunks) {
+    mono.set(c, off)
+    off += c.length
+  }
 
-  const mono = toMonoFloat32(audioBuffer)
-  const resampled = resampleLinear(mono, audioBuffer.sampleRate, TARGET_SR)
+  const resampled = resampleLinear(mono, ctx.sampleRate, TARGET_SR)
 
   return {
     samples: [resampled],
