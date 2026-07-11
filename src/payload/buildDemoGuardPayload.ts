@@ -13,6 +13,8 @@ import type { DemoGuardState } from '../state/demoguardReducer';
 import type { BehaviorPayload, TouchDiagnosticsBehaviorSafe } from '../demoguard/behavior/behaviorTypes';
 import { DEMOGUARD_VERSION, DEMOGUARD_SOURCE } from '../demoguard/constants';
 import { computeQuality } from '../demoguard/quality/signalCompleteness';
+import { computeCognitiveSummary } from '../demoguard/cognitive/cognitiveScoring';
+import { buildVoiceDiagnosticsSafe, buildTouchDiagnosticsSafe } from './diagnosticsSafe';
 
 export interface SensitiveRef {
   selfie_b64: string | null;
@@ -26,19 +28,30 @@ export function buildDemoGuardPayload(
   behaviorDiag: TouchDiagnosticsBehaviorSafe | null,
   sensitive: SensitiveRef,
 ): DemoGuardPayload {
+  const cognitiveWithSummary = state.cognitiveSignals
+    ? { ...state.cognitiveSignals, summary: computeCognitiveSummary(state.cognitiveSignals) }
+    : null;
+
   const signals: DemoGuardSignals = {
-    selfie: state.signals.selfie,
-    reaction: null,
-    voice: state.signals.voice,
-    motion: state.signals.motion,
-    orientation: state.signals.orientation,
-    touch: state.signals.touch,
-    visibility: state.signals.visibility,
-    network: state.signals.network,
-    cognitive: state.cognitiveSignals,
+    selfie: state.signals.selfie ?? undefined,
+    reaction: undefined,
+    voice: state.signals.voice ?? undefined,
+    motion: state.signals.motion ?? undefined,
+    orientation: state.signals.orientation ?? undefined,
+    touch: state.signals.touch ?? undefined,
+    visibility: state.signals.visibility ?? undefined,
+    network: state.signals.network ?? undefined,
+    cognitive: cognitiveWithSummary,
     behavior: behaviorPayload,
-    voiceDiagnostics: state.voiceDiagnostic ?? undefined,
-    touchDiagnostics: state.touchDiagnostic ?? undefined,
+    voiceDiagnostics: buildVoiceDiagnosticsSafe(
+      state.signals.voice,
+      state.voiceDiagnostic,
+      !!sensitive.voice_b64,
+    ),
+    touchDiagnostics: buildTouchDiagnosticsSafe(
+      state.signals.touch,
+      behaviorDiag,
+    ),
     touchDiagnosticsBehavior: behaviorDiag ?? undefined,
   };
 

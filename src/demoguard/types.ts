@@ -159,14 +159,14 @@ export interface DemoGuardNetworkSignal {
 // ─── Signals aggregate ─────────────────────────────────────────────
 
 export interface DemoGuardSignals {
-  selfie: DemoGuardSelfieSignal | null;
-  reaction: DemoGuardReactionSignal | null;
-  voice: DemoGuardVoiceSignal | null;
-  motion: DemoGuardMotionSignal | null;
-  orientation: DemoGuardOrientationSignal | null;
-  touch: DemoGuardTouchSignal | null;
-  visibility: DemoGuardVisibilitySignal | null;
-  network: DemoGuardNetworkSignal | null;
+  selfie: DemoGuardSelfieSignal | null | undefined;
+  reaction: DemoGuardReactionSignal | null | undefined;
+  voice: DemoGuardVoiceSignal | null | undefined;
+  motion: DemoGuardMotionSignal | null | undefined;
+  orientation: DemoGuardOrientationSignal | null | undefined;
+  touch: DemoGuardTouchSignal | null | undefined;
+  visibility: DemoGuardVisibilitySignal | null | undefined;
+  network: DemoGuardNetworkSignal | null | undefined;
   cognitive?: CognitiveSignals | null;
   behavior?: BehaviorPayload | null;
   voiceDiagnostics?: VoiceDiagnosticsSafe;

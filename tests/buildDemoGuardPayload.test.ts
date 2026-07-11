@@ -197,7 +197,7 @@ describe('buildDemoGuardPayload', () => {
       mfcc_summary: null,
     });
 
-    expect(payload.demo_guard.signals.touch).toBeNull();
+    expect(payload.demo_guard.signals.touch).toBeUndefined();
     expect(payload.demo_guard.signals.touchDiagnosticsBehavior).toBeDefined();
     expect(payload.demo_guard.signals.touchDiagnosticsBehavior?.status).toBe('unsupported');
     expect(payload.demo_guard.signals.touchDiagnosticsBehavior?.supported).toBe(false);
@@ -250,7 +250,7 @@ describe('buildDemoGuardPayload', () => {
       { selfie_b64: null, voice_b64: null, mfcc_summary: null },
     );
 
-    expect(payload.demo_guard.signals.voice).toBeNull();
+    expect(payload.demo_guard.signals.voice).toBeUndefined();
     expect(payload.demo_guard.signals.voiceDiagnostics).toBeDefined();
     expect(payload.demo_guard.signals.voiceDiagnostics?.status).toBe('not_checked');
     expect(payload.demo_guard.signals.voiceDiagnostics?.analysisMode).toBe('skipped');
@@ -323,8 +323,8 @@ describe('buildDemoGuardPayload', () => {
 
     // All edge conditions present
     expect(payload.demo_guard.signals.behavior).toBeNull();
-    expect(payload.demo_guard.signals.touch).toBeNull();
-    expect(payload.demo_guard.signals.voice).toBeNull();
+    expect(payload.demo_guard.signals.touch).toBeUndefined();
+    expect(payload.demo_guard.signals.voice).toBeUndefined();
     expect(payload.demo_guard.signals.touchDiagnosticsBehavior?.status).toBe('unsupported');
     expect(payload.demo_guard.signals.voiceDiagnostics?.status).toBe('not_checked');
     expect(payload.demo_guard.signals.cognitive?.vocal_ran).toBeNull();
@@ -334,5 +334,151 @@ describe('buildDemoGuardPayload', () => {
     // Payload still valid
     expect(payload.hcs_session_public_id).toBe('sess_test');
     expect(payload.demo_guard.quality).toBeDefined();
+  });
+
+  // ── GAP 0: null → undefined for signal slots (Zod .optional() rejects null) ──
+
+  it('GAP 0: reaction key absent from JSON when null (not serialized as null)', () => {
+    const payload = buildDemoGuardPayload(mockState, null, null, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    const json = JSON.stringify(payload.demo_guard.signals);
+    expect(json).not.toContain('"reaction"');
+    expect(payload.demo_guard.signals.reaction).toBeUndefined();
+  });
+
+  it('GAP 0: all null signal slots are undefined (omitted from JSON)', () => {
+    const nullSignalsState: DemoGuardState = {
+      ...mockState,
+      signals: {
+        selfie: null,
+        reaction: null,
+        voice: null,
+        motion: null,
+        orientation: null,
+        touch: null,
+        visibility: null,
+        network: null,
+        cognitive: null,
+        behavior: null,
+      },
+    };
+    const payload = buildDemoGuardPayload(nullSignalsState, null, null, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    const json = JSON.stringify(payload.demo_guard.signals);
+    expect(json).not.toContain('"selfie":null');
+    expect(json).not.toContain('"reaction"');
+    expect(json).not.toContain('"voice":null');
+    expect(json).not.toContain('"motion":null');
+    expect(json).not.toContain('"orientation":null');
+    expect(json).not.toContain('"touch":null');
+    expect(json).not.toContain('"visibility":null');
+    expect(json).not.toContain('"network":null');
+  });
+
+  // ── GAP 1: cognitive.summary is computed (not null) ──
+
+  it('GAP 1: cognitive.summary is a computed object (not null)', () => {
+    const payload = buildDemoGuardPayload(mockState, null, null, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    expect(payload.demo_guard.signals.cognitive?.summary).toBeDefined();
+    expect(payload.demo_guard.signals.cognitive?.summary).not.toBeNull();
+    expect(typeof payload.demo_guard.signals.cognitive?.summary).toBe('object');
+    expect(payload.demo_guard.signals.cognitive?.summary?.completed_modules).toBe(6);
+    expect(payload.demo_guard.signals.cognitive?.summary?.total_modules).toBe(6);
+  });
+
+  it('GAP 1: cognitive.summary is null when cognitiveSignals is null', () => {
+    const noCogState: DemoGuardState = {
+      ...mockState,
+      cognitiveSignals: null,
+    };
+    const payload = buildDemoGuardPayload(noCogState, null, null, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    expect(payload.demo_guard.signals.cognitive).toBeNull();
+  });
+
+  // ── GAP 3: touchDiagnostics is always an object ──
+
+  it('GAP 3: touchDiagnostics is an object even when touch is null and behaviorDiag is null', () => {
+    const noTouchState: DemoGuardState = {
+      ...mockState,
+      signals: { ...mockState.signals, touch: null },
+    };
+    const payload = buildDemoGuardPayload(noTouchState, null, null, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    expect(payload.demo_guard.signals.touchDiagnostics).toBeDefined();
+    expect(payload.demo_guard.signals.touchDiagnostics?.status).toBe('missing');
+    expect(payload.demo_guard.signals.touchDiagnostics?.supported).toBe(false);
+    expect(payload.demo_guard.signals.touchDiagnostics?.interactionCount).toBe(0);
+  });
+
+  it('GAP 3: touchDiagnostics uses behaviorDiag when available', () => {
+    const diag: TouchDiagnosticsBehaviorSafe = {
+      status: 'ok',
+      supported: true,
+      interactionCount: 42,
+      tasksObserved: 5,
+      quality: 'ok',
+      reasonSafe: 'behavior_touch_captured',
+      behaviorConsistency: 0.8,
+      motorConfidence: 0.9,
+    };
+    const payload = buildDemoGuardPayload(mockState, null, diag, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    expect(payload.demo_guard.signals.touchDiagnostics?.status).toBe('ok');
+    expect(payload.demo_guard.signals.touchDiagnostics?.interactionCount).toBe(42);
+  });
+
+  // ── GAP 4: voiceDiagnostics is always an object (fallback not_checked) ──
+
+  it('GAP 4: voiceDiagnostics is an object even when voice is null and no diagnostic', () => {
+    const noVoiceState: DemoGuardState = {
+      ...mockState,
+      signals: { ...mockState.signals, voice: null },
+      voiceDiagnostic: null,
+    };
+    const payload = buildDemoGuardPayload(noVoiceState, null, null, {
+      selfie_b64: null,
+      voice_b64: null,
+      mfcc_summary: null,
+    });
+    expect(payload.demo_guard.signals.voiceDiagnostics).toBeDefined();
+    expect(payload.demo_guard.signals.voiceDiagnostics?.status).toBe('not_checked');
+    expect(payload.demo_guard.signals.voiceDiagnostics?.reasonSafe).toBe('voice_missing');
+    expect(payload.demo_guard.signals.voiceDiagnostics?.audioCaptured).toBe(false);
+  });
+
+  it('GAP 4: voiceDiagnostics fallback to not_checked when voice recorded but no diagnostic', () => {
+    const voiceRecordedState: DemoGuardState = {
+      ...mockState,
+      voiceDiagnostic: null,
+    };
+    const payload = buildDemoGuardPayload(voiceRecordedState, null, null, {
+      selfie_b64: null,
+      voice_b64: 'voicebase64',
+      mfcc_summary: null,
+    });
+    expect(payload.demo_guard.signals.voiceDiagnostics?.status).toBe('not_checked');
+    expect(payload.demo_guard.signals.voiceDiagnostics?.reasonSafe).toBe('not_attempted');
+    expect(payload.demo_guard.signals.voiceDiagnostics?.audioCaptured).toBe(true);
+    expect(payload.demo_guard.signals.voiceDiagnostics?.payloadPrepared).toBe(true);
   });
 });
