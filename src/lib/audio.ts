@@ -209,11 +209,29 @@ export interface AudioRecordingResult {
   chunksCount: number;
 }
 
+const isDev = import.meta.env?.DEV ?? false;
+
 export async function recordAudio(durationMs: number): Promise<AudioRecordingResult> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
   const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
   const ctx = new AudioCtx()
+
+  // AudioContext state guard — iOS Safari often starts in 'suspended' state
+  // which produces silent buffers (all zeros) until resumed.
+  if (ctx.state === 'suspended') {
+    if (isDev) console.log('[audio] AudioContext suspended before recording, attempting resume()');
+    try {
+      await ctx.resume();
+    } catch {
+      // resume() can fail if not triggered by user gesture — non-fatal
+    }
+    if (isDev) console.log('[audio] AudioContext state after resume():', ctx.state);
+    if (ctx.state as string !== 'running') {
+      console.warn('[audio] AudioContext still not running after resume() — recording may produce silent buffers');
+    }
+  }
+
   const source = ctx.createMediaStreamSource(stream)
   const processor = ctx.createScriptProcessor(4096, 1, 1)
   const chunks: Float32Array[] = []
@@ -221,7 +239,8 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   source.connect(processor)
   processor.connect(ctx.destination)
   processor.onaudioprocess = (e) => {
-    chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))
+    const data = new Float32Array(e.inputBuffer.getChannelData(0))
+    chunks.push(data)
   }
 
   await new Promise<void>(resolve => setTimeout(resolve, durationMs))
@@ -231,6 +250,18 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   stream.getTracks().forEach(t => t.stop())
   await ctx.close()
 
+  // Zero-chunk guard: check if first chunk is all zeros (sign of context not active during capture)
+  if (chunks.length > 0) {
+    const firstChunk = chunks[0]
+    let allZeros = true
+    for (let i = 0; i < Math.min(firstChunk.length, 256); i++) {
+      if (firstChunk[i] !== 0) { allZeros = false; break }
+    }
+    if (allZeros) {
+      console.warn('[audio] First audio chunk is all zeros — AudioContext may not have been active when recording started');
+    }
+  }
+
   const totalLen = chunks.reduce((s, c) => s + c.length, 0)
   const mono = new Float32Array(totalLen)
   let off = 0
@@ -238,6 +269,12 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
     mono.set(c, off)
     off += c.length
   }
+
+  // Compute RMS for diagnostics — visible in dev logs, helps identify silent capture
+  let sumSq = 0
+  for (let i = 0; i < mono.length; i++) sumSq += mono[i] * mono[i]
+  const rms = Math.sqrt(sumSq / (mono.length || 1))
+  if (isDev) console.log(`[audio] Recording RMS: ${rms.toFixed(4)}, peak: ${Math.max(...mono).toFixed(4)}, samples: ${mono.length}, chunks: ${chunks.length}`)
 
   const resampled = resampleLinear(mono, ctx.sampleRate, TARGET_SR)
 
