@@ -1,0 +1,91 @@
+/**
+ * DemoGuard — VoiceScreen (voice recording with vocal RAN challenge)
+ *
+ * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
+ * Patents Pending FR2514274 | FR2514546
+ */
+
+import { useEffect, useState, useRef } from 'react';
+import { recordVoiceChallenge, VOICE_DURATION_MS } from '../demoguard/collectors/audioCollector';
+import { generateVocalRanChallenge, computeVocalRanResult } from '../demoguard/cognitive/vocalRanChallenge';
+import type { VocalRanSignal } from '../demoguard/cognitive/cognitiveTypes';
+import type { DemoGuardVoiceSignal, VoiceDiagnosticsSafe } from '../demoguard/types';
+import { recordTaskStart } from '../demoguard/behavior/taskBehaviorRecorder';
+import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
+import { PhaseHeader } from '../components/PhaseHeader';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+
+interface Props {
+  session: BehaviorSession;
+  onComplete: (voice: DemoGuardVoiceSignal, diagnostic: VoiceDiagnosticsSafe | null, voiceB64: string | null, mfccSummary: number[] | null, vocalRan: VocalRanSignal) => void;
+  onError: (reason: string) => void;
+}
+
+type RecordingState = 'idle' | 'recording' | 'processing' | 'done';
+
+export function VoiceScreen({ session, onComplete, onError }: Props) {
+  const [challenge] = useState(() => generateVocalRanChallenge());
+  const [state, setState] = useState<RecordingState>('idle');
+  const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    recordTaskStart(session, 'vocal_ran');
+  }, []);
+
+  const handleRecord = async () => {
+    setState('recording');
+    startTimeRef.current = performance.now();
+    try {
+      const result = await recordVoiceChallenge(VOICE_DURATION_MS, challenge.challenge_id);
+      const durationMs = performance.now() - startTimeRef.current;
+      const vocalRan = computeVocalRanResult(challenge, durationMs, result.safe.recorded);
+
+      const diagnostic: VoiceDiagnosticsSafe | null = result.safe.recorded
+        ? {
+            status: 'not_checked',
+            reasonSafe: 'voice_checked',
+            analysisMode: result.diagnostic.analysisMode,
+            audioCaptured: result.diagnostic.audioCaptured,
+            payloadPrepared: result.diagnostic.payloadPrepared,
+            relayAttempted: false,
+            relayAccepted: false,
+            hcsAnalyzed: false,
+            featuresExtracted: result.safe.mfcc_available ?? false,
+            livenessStatus: 'unknown',
+            confidence: null,
+            latencyMs: null,
+          }
+        : null;
+
+      onComplete(result.safe, diagnostic, result.sensitive?.voice_b64 ?? null, result.sensitive?.mfcc_summary ?? null, vocalRan);
+      setState('done');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Voice recording failed');
+      setState('idle');
+    }
+  };
+
+  return (
+    <div className="screen">
+      <PhaseHeader title="Voix" progress="7/7" progressPct={95} />
+      <ErrorBoundary onRetry={() => setState('idle')}>
+        <div className="voice-visual">
+          <div className={`voice-pulse ${state === 'recording' ? 'recording' : ''}`} />
+          {state === 'idle' && (
+            <>
+              <p>Lisez à voix haute :</p>
+              <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 8 }}>
+                {challenge.sequence.join(' ')}
+              </p>
+              <p className="muted">Durée : {VOICE_DURATION_MS / 1000}s</p>
+              <button className="btn" onClick={handleRecord}>Enregistrer</button>
+            </>
+          )}
+          {state === 'recording' && <p style={{ fontSize: 20, fontWeight: 600 }}>Enregistrement…</p>}
+          {state === 'processing' && <p className="muted">Traitement…</p>}
+          {state === 'done' && <p>Enregistrement terminé ✓</p>}
+        </div>
+      </ErrorBoundary>
+    </div>
+  );
+}
