@@ -6,7 +6,7 @@
  * Run: npx vitest run tests/empirical-payload.test.ts
  */
 import { describe, it, expect } from 'vitest';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync } from 'fs';
 import { buildDemoGuardPayload } from '../src/payload/buildDemoGuardPayload';
 import { initialState } from '../src/state/demoguardReducer';
 import type { DemoGuardState } from '../src/state/demoguardReducer';

@@ -18,5 +18,6 @@
     "types": []
   },
   "include": ["src", "tests"],
+  "exclude": ["tests/empirical-payload.test.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
