@@ -18,6 +18,7 @@ import { useContinuousSignals } from './hooks/useContinuousSignals';
 import { buildDemoGuardPayload } from './payload/buildDemoGuardPayload';
 import { submitDemoGuard } from './demoguard/api';
 import type { DemoGuardSelfieSignal, DemoGuardVoiceSignal, VoiceDiagnosticsSafe } from './demoguard/types';
+import type { VocalRanSignal } from './demoguard/cognitive/cognitiveTypes';
 
 import { IdleScreen } from './screens/IdleScreen';
 import { PrepScreen } from './screens/PrepScreen';
@@ -67,10 +68,11 @@ export default function App() {
     diagnostic: VoiceDiagnosticsSafe | null,
     voiceB64: string | null,
     mfccSummary: number[] | null,
+    vocalRan: VocalRanSignal,
   ) => {
     sensitiveRef.current.voice_b64 = voiceB64;
     sensitiveRef.current.mfcc_summary = mfccSummary;
-    dispatch({ type: 'VOICE_CAPTURED', voice, diagnostic });
+    dispatch({ type: 'VOICE_CAPTURED', voice, diagnostic, vocalRan });
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -212,7 +214,14 @@ export default function App() {
         {state.phase === 'device_signals' && (
           <DeviceSignalsScreen
             signals={state.signals}
-            onContinue={() => dispatch({ type: 'DEVICE_SIGNALS_CONTINUE' })}
+            onContinue={() => {
+              // Stop continuous collectors NOW so ReadinessScreen sees the final signals
+              const deviceSignals = continuousSignals.stop();
+              if (Object.keys(deviceSignals).length > 0) {
+                dispatch({ type: 'DEVICE_SIGNALS_COLLECTED', signals: deviceSignals });
+              }
+              dispatch({ type: 'DEVICE_SIGNALS_CONTINUE' });
+            }}
           />
         )}
 

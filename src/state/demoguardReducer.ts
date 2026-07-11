@@ -8,7 +8,7 @@
  */
 
 import type { DemoGuardSignals, DemoGuardPermissions, DemoGuardDeviceContext, DemoGuardQuality, DemoGuardSafeResponse, VoiceDiagnosticsSafe, TouchDiagnosticsSafe } from '../demoguard/types';
-import type { CognitiveSignals } from '../demoguard/cognitive/cognitiveTypes';
+import type { CognitiveSignals, VocalRanSignal } from '../demoguard/cognitive/cognitiveTypes';
 import type { BehaviorPayload, TouchDiagnosticsBehaviorSafe } from '../demoguard/behavior/behaviorTypes';
 
 export type Phase =
@@ -85,7 +85,7 @@ export type Action =
   | { type: 'SELFIE_CAPTURED'; selfie: DemoGuardSignals['selfie'] }
   | { type: 'TEST_COMPLETED'; testName: string; signal: unknown }
   | { type: 'COGNITIVE_COMPLETED'; cognitive: CognitiveSignals }
-  | { type: 'VOICE_CAPTURED'; voice: DemoGuardSignals['voice']; diagnostic: VoiceDiagnosticsSafe | null }
+  | { type: 'VOICE_CAPTURED'; voice: DemoGuardSignals['voice']; diagnostic: VoiceDiagnosticsSafe | null; vocalRan?: VocalRanSignal }
   | { type: 'BEHAVIOR_COLLECTED'; payload: BehaviorPayload; touchDiag: TouchDiagnosticsBehaviorSafe }
   | { type: 'REVIEW_CONTINUE' }
   | { type: 'DEVICE_SIGNALS_COLLECTED'; signals: Partial<DemoGuardSignals> }
@@ -192,9 +192,25 @@ export function demoguardReducer(state: DemoGuardState, action: Action): DemoGua
     case 'VOICE_CAPTURED': {
       const nextPhase: Phase = 'review';
       if (!isValidTransition(state.phase, nextPhase)) return state;
+
+      // Store vocal_ran in cognitiveSignals if provided
+      let cognitiveSignals = state.cognitiveSignals;
+      if (action.vocalRan) {
+        cognitiveSignals = state.cognitiveSignals ?? {
+          reflex: null, stroop: null, digit_span: null, n_back: null, trail_tap: null, vocal_ran: null, summary: null,
+        };
+        cognitiveSignals = { ...cognitiveSignals, vocal_ran: action.vocalRan };
+      }
+
       return {
         ...state,
-        signals: { ...state.signals, voice: action.voice, voiceDiagnostics: action.diagnostic ?? undefined },
+        cognitiveSignals,
+        signals: {
+          ...state.signals,
+          voice: action.voice,
+          cognitive: cognitiveSignals,
+          voiceDiagnostics: action.diagnostic ?? undefined,
+        },
         voiceDiagnostic: action.diagnostic,
         phase: nextPhase,
       };

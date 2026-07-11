@@ -154,4 +154,83 @@ describe('demoguardReducer', () => {
     const next = demoguardReducer(initialState, { type: 'SUBMIT' });
     expect(next.phase).toBe('idle');
   });
+
+  // ── COMPLETENESS-54-FIX-01 tests ──────────────────────────────────
+
+  it('VOICE_CAPTURED stores vocalRan in cognitiveSignals', () => {
+    const started = demoguardReducer(initialState, { type: 'START', sessionPublicId: 's1' });
+    const camera = demoguardReducer(started, { type: 'PREP_READY' });
+    const reflex = demoguardReducer(camera, { type: 'SELFIE_CAPTURED', selfie: null });
+    const colors = demoguardReducer(reflex, { type: 'TEST_COMPLETED', testName: 'reflex', signal: {} });
+    const memory = demoguardReducer(colors, { type: 'TEST_COMPLETED', testName: 'stroop', signal: {} });
+    const compare = demoguardReducer(memory, { type: 'TEST_COMPLETED', testName: 'digit_span', signal: {} });
+    const path = demoguardReducer(compare, { type: 'TEST_COMPLETED', testName: 'n_back', signal: {} });
+    const voice = demoguardReducer(path, { type: 'TEST_COMPLETED', testName: 'trail_tap', signal: {} });
+    const vocalRan = { items_count: 5, duration_ms: 3000, challenge_id: 'test', expected_hash: 'abc', audio_present: true, quality: 'ok' as const };
+    const next = demoguardReducer(voice, {
+      type: 'VOICE_CAPTURED',
+      voice: { recorded: true, quality: 'ok', challenge_id: 'test' },
+      diagnostic: null,
+      vocalRan,
+    });
+    expect(next.phase).toBe('review');
+    expect(next.cognitiveSignals?.vocal_ran).toEqual(vocalRan);
+    expect(next.signals.cognitive?.vocal_ran).toEqual(vocalRan);
+  });
+
+  it('VOICE_CAPTURED without vocalRan leaves cognitiveSignals.vocal_ran null', () => {
+    const started = demoguardReducer(initialState, { type: 'START', sessionPublicId: 's1' });
+    const camera = demoguardReducer(started, { type: 'PREP_READY' });
+    const reflex = demoguardReducer(camera, { type: 'SELFIE_CAPTURED', selfie: null });
+    const colors = demoguardReducer(reflex, { type: 'TEST_COMPLETED', testName: 'reflex', signal: {} });
+    const memory = demoguardReducer(colors, { type: 'TEST_COMPLETED', testName: 'stroop', signal: {} });
+    const compare = demoguardReducer(memory, { type: 'TEST_COMPLETED', testName: 'digit_span', signal: {} });
+    const path = demoguardReducer(compare, { type: 'TEST_COMPLETED', testName: 'n_back', signal: {} });
+    const voice = demoguardReducer(path, { type: 'TEST_COMPLETED', testName: 'trail_tap', signal: {} });
+    const next = demoguardReducer(voice, {
+      type: 'VOICE_CAPTURED',
+      voice: { recorded: true, quality: 'ok', challenge_id: 'test' },
+      diagnostic: null,
+    });
+    expect(next.cognitiveSignals?.vocal_ran).toBeNull();
+  });
+
+  it('DEVICE_SIGNALS_COLLECTED + CONTINUE produces state with all optional signals for readiness', () => {
+    const started = demoguardReducer(initialState, { type: 'START', sessionPublicId: 's1' });
+    const camera = demoguardReducer(started, { type: 'PREP_READY' });
+    const reflex = demoguardReducer(camera, { type: 'SELFIE_CAPTURED', selfie: null });
+    const colors = demoguardReducer(reflex, { type: 'TEST_COMPLETED', testName: 'reflex', signal: {} });
+    const memory = demoguardReducer(colors, { type: 'TEST_COMPLETED', testName: 'stroop', signal: {} });
+    const compare = demoguardReducer(memory, { type: 'TEST_COMPLETED', testName: 'digit_span', signal: {} });
+    const path = demoguardReducer(compare, { type: 'TEST_COMPLETED', testName: 'n_back', signal: {} });
+    const voice = demoguardReducer(path, { type: 'TEST_COMPLETED', testName: 'trail_tap', signal: {} });
+    const vocalRan = { items_count: 5, duration_ms: 3000, challenge_id: 'test', expected_hash: 'abc', audio_present: true, quality: 'ok' as const };
+    const review = demoguardReducer(voice, {
+      type: 'VOICE_CAPTURED',
+      voice: { recorded: true, quality: 'ok', challenge_id: 'test' },
+      diagnostic: null,
+      vocalRan,
+    });
+    const devSignals = demoguardReducer(review, { type: 'REVIEW_CONTINUE' });
+
+    // Simulate continuous signals stop (what App.tsx does at device_signals→readiness)
+    const withSignals = demoguardReducer(devSignals, {
+      type: 'DEVICE_SIGNALS_COLLECTED',
+      signals: {
+        motion: { supported: true, permission: 'granted', sample_count: 100, quality: 'ok' },
+        orientation: { supported: true, permission: 'granted', sample_count: 100, changes: 5, quality: 'ok' },
+        touch: { touch_count: 50, pressure_supported: false, multi_touch_detected: false, quality: 'ok' },
+        visibility: { blur_count: 0, focus_count: 0, visibility_hidden_count: 0, hidden_duration_ms: 0, page_focus_lost: false, quality: 'ok' },
+        network: { online: true, effective_type: '4g', downlink: 10, rtt: 50, quality: 'ok' },
+      },
+    });
+    const readiness = demoguardReducer(withSignals, { type: 'DEVICE_SIGNALS_CONTINUE' });
+    expect(readiness.phase).toBe('readiness');
+    expect(readiness.signals.motion).not.toBeNull();
+    expect(readiness.signals.orientation).not.toBeNull();
+    expect(readiness.signals.touch).not.toBeNull();
+    expect(readiness.signals.visibility).not.toBeNull();
+    expect(readiness.signals.network).not.toBeNull();
+    expect(readiness.signals.cognitive?.vocal_ran).not.toBeNull();
+  });
 });
