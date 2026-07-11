@@ -78,15 +78,20 @@ export default function App() {
 
     try {
       const deviceSignals = continuousSignals.stop();
+      const behaviorPayload = getPayload();
+      const behaviorDiag = getTouchDiagnostics();
+
+      const stateWithSignals: typeof state = {
+        ...state,
+        signals: { ...state.signals, ...deviceSignals },
+      };
+
       if (Object.keys(deviceSignals).length > 0) {
         dispatch({ type: 'DEVICE_SIGNALS_COLLECTED', signals: deviceSignals });
       }
-
-      const behaviorPayload = getPayload();
-      const behaviorDiag = getTouchDiagnostics();
       dispatch({ type: 'BEHAVIOR_COLLECTED', payload: behaviorPayload, touchDiag: behaviorDiag });
 
-      const payload = buildDemoGuardPayload(state, behaviorPayload, behaviorDiag, sensitiveRef.current);
+      const payload = buildDemoGuardPayload(stateWithSignals, behaviorPayload, behaviorDiag, sensitiveRef.current);
       const response = await submitDemoGuard(payload);
       dispatch({ type: 'RESPONSE_RECEIVED', response });
     } catch (err) {

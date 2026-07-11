@@ -10,7 +10,7 @@ import { buildDemoGuardPayload } from '../src/payload/buildDemoGuardPayload';
 import type { DemoGuardState } from '../src/state/demoguardReducer';
 import { initialState } from '../src/state/demoguardReducer';
 import type { TouchDiagnosticsBehaviorSafe } from '../src/demoguard/behavior/behaviorTypes';
-import type { VoiceDiagnosticsSafe } from '../src/demoguard/types';
+import type { VoiceDiagnosticsSafe, DemoGuardSignals } from '../src/demoguard/types';
 
 const mockState: DemoGuardState = {
   ...initialState,
@@ -480,5 +480,100 @@ describe('buildDemoGuardPayload', () => {
     expect(payload.demo_guard.signals.voiceDiagnostics?.reasonSafe).toBe('not_attempted');
     expect(payload.demo_guard.signals.voiceDiagnostics?.audioCaptured).toBe(true);
     expect(payload.demo_guard.signals.voiceDiagnostics?.payloadPrepared).toBe(true);
+  });
+
+  // ── FIX-02: Stale state regression — device signals must be in payload ──
+
+  it('FIX-02: device signals from stop*Collection appear in payload when merged into state (not stale)', () => {
+    // Simulate the stale state bug: state.signals has null device signals
+    // (as they would be before the dispatch is applied)
+    const staleState: DemoGuardState = {
+      ...mockState,
+      signals: {
+        ...mockState.signals,
+        motion: null,
+        orientation: null,
+        touch: null,
+        visibility: null,
+        network: null,
+      },
+    };
+
+    // Simulate what continuousSignals.stop() returns
+    const deviceSignals: Partial<DemoGuardSignals> = {
+      motion: { supported: true, permission: 'granted', sample_count: 360, variance: 0.15, quality: 'ok' },
+      orientation: { supported: true, permission: 'granted', sample_count: 360, changes: 27, quality: 'ok' },
+      touch: { touch_count: 47, pointer_type: 'touch', pressure_supported: true, pressure_avg: 0.3, move_distance: 3200, multi_touch_detected: false, quality: 'ok' },
+      visibility: { blur_count: 0, focus_count: 0, visibility_hidden_count: 0, hidden_duration_ms: 0, page_focus_lost: false, quality: 'ok' },
+      network: { online: true, effective_type: '4g', rtt: 50, downlink: 10, quality: 'ok' },
+    };
+
+    // OLD (buggy): buildDemoGuardPayload(staleState, ...) → device signals undefined
+    const buggyPayload = buildDemoGuardPayload(staleState, null, null, {
+      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+    });
+    expect(buggyPayload.demo_guard.signals.motion).toBeUndefined();
+    expect(buggyPayload.demo_guard.signals.orientation).toBeUndefined();
+    expect(buggyPayload.demo_guard.signals.touch).toBeUndefined();
+
+    // FIX: merge deviceSignals into state before building payload
+    const stateWithSignals: DemoGuardState = {
+      ...staleState,
+      signals: { ...staleState.signals, ...deviceSignals },
+    };
+
+    const fixedPayload = buildDemoGuardPayload(stateWithSignals, null, null, {
+      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+    });
+
+    expect(fixedPayload.demo_guard.signals.motion).toBeDefined();
+    expect(fixedPayload.demo_guard.signals.motion?.sample_count).toBe(360);
+    expect(fixedPayload.demo_guard.signals.orientation).toBeDefined();
+    expect(fixedPayload.demo_guard.signals.orientation?.changes).toBe(27);
+    expect(fixedPayload.demo_guard.signals.touch).toBeDefined();
+    expect(fixedPayload.demo_guard.signals.touch?.touch_count).toBe(47);
+    expect(fixedPayload.demo_guard.signals.visibility).toBeDefined();
+    expect(fixedPayload.demo_guard.signals.visibility?.blur_count).toBe(0);
+    expect(fixedPayload.demo_guard.signals.network).toBeDefined();
+    expect(fixedPayload.demo_guard.signals.network?.online).toBe(true);
+  });
+
+  it('FIX-02: completeness increases when device signals are merged (not stale)', () => {
+    const staleState: DemoGuardState = {
+      ...mockState,
+      signals: {
+        ...mockState.signals,
+        motion: null,
+        orientation: null,
+        touch: null,
+        visibility: null,
+        network: null,
+      },
+    };
+
+    const buggyPayload = buildDemoGuardPayload(staleState, null, null, {
+      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+    });
+    const buggyCompleteness = buggyPayload.demo_guard.quality.signal_completeness;
+
+    const deviceSignals: Partial<DemoGuardSignals> = {
+      motion: { supported: true, permission: 'granted', sample_count: 360, variance: 0.15, quality: 'ok' },
+      orientation: { supported: true, permission: 'granted', sample_count: 360, changes: 27, quality: 'ok' },
+      touch: { touch_count: 47, pointer_type: 'touch', pressure_supported: true, pressure_avg: 0.3, move_distance: 3200, multi_touch_detected: false, quality: 'ok' },
+      visibility: { blur_count: 0, focus_count: 0, visibility_hidden_count: 0, hidden_duration_ms: 0, page_focus_lost: false, quality: 'ok' },
+      network: { online: true, effective_type: '4g', rtt: 50, downlink: 10, quality: 'ok' },
+    };
+
+    const stateWithSignals: DemoGuardState = {
+      ...staleState,
+      signals: { ...staleState.signals, ...deviceSignals },
+    };
+
+    const fixedPayload = buildDemoGuardPayload(stateWithSignals, null, null, {
+      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+    });
+    const fixedCompleteness = fixedPayload.demo_guard.quality.signal_completeness;
+
+    expect(fixedCompleteness).toBeGreaterThan(buggyCompleteness);
   });
 });
