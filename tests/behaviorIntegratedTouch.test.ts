@@ -19,7 +19,7 @@ import {
   recordNBackDecision,
   recordTrailTap,
 } from '../src/demoguard/behavior/taskBehaviorRecorder';
-import { computeBehaviorSummary } from '../src/demoguard/behavior/behaviorScoring';
+import { computeBehaviorSummary, computeTaskBehavior } from '../src/demoguard/behavior/behaviorScoring';
 import type { TaskTouchBehavior, BehaviorPayload } from '../src/demoguard/behavior/behaviorTypes';
 
 describe('P10 BEHAVIOR-INTEGRATED-TOUCH', () => {
@@ -271,6 +271,101 @@ describe('P10 BEHAVIOR-INTEGRATED-TOUCH', () => {
       expect(summary.tasksObserved).toBe(0);
       expect(summary.quality).toBe('failed');
       expect(summary.behaviorLikelihood).toBe('low');
+    });
+  });
+
+  describe('Task-specific variance thresholds (BEHAVIOR-VARIANCE-FIX-01)', () => {
+    it('Stroop with normal cognitive pauses (1-2s) is ok, not review', () => {
+      const records = [
+        { task: 'stroop' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'stroop' as const, timestamp: 1500, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'stroop' as const, timestamp: 2800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'stroop' as const, timestamp: 4200, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'stroop' as const, timestamp: 5800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'stroop' as const, timestamp: 7200, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('stroop', records);
+      expect(tb.behaviorQuality).toBe('ok');
+      expect(tb.varianceInterActionMs).toBeLessThan(2_000_000);
+    });
+
+    it('Digit Span with variable recall times is ok', () => {
+      const records = [
+        { task: 'digit_span' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 1200, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 2500, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 4200, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 5800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 7000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('digit_span', records);
+      expect(tb.behaviorQuality).toBe('ok');
+      expect(tb.varianceInterActionMs).toBeLessThan(3_000_000);
+    });
+
+    it('N-Back with moderate cognitive variance is ok', () => {
+      const records = [
+        { task: 'n_back' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'n_back' as const, timestamp: 800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'n_back' as const, timestamp: 1800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'n_back' as const, timestamp: 2600, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'n_back' as const, timestamp: 3700, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'n_back' as const, timestamp: 4800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('n_back', records);
+      expect(tb.behaviorQuality).toBe('ok');
+      expect(tb.varianceInterActionMs).toBeLessThan(1_500_000);
+    });
+
+    it('Reflex with abnormal 10s pause is still review (not laxiste)', () => {
+      const records = [
+        { task: 'reflex' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 300, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 600, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 10600, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 10900, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('reflex', records);
+      expect(tb.behaviorQuality).toBe('review');
+      expect(tb.varianceInterActionMs).toBeGreaterThan(100_000);
+    });
+
+    it('Reflex with fast uniform taps is ok', () => {
+      const records = [
+        { task: 'reflex' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 350, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 680, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 1020, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 1380, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('reflex', records);
+      expect(tb.behaviorQuality).toBe('ok');
+      expect(tb.varianceInterActionMs).toBeLessThan(100_000);
+    });
+
+    it('Full cognitive battery with normal variance produces quality ok', () => {
+      const taskBehaviors: Partial<Record<string, TaskTouchBehavior>> = {
+        reflex: { task: 'reflex', interactionCount: 5, avgInterActionMs: 350, varianceInterActionMs: 5000, hesitationCount: 0, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        stroop: { task: 'stroop', interactionCount: 6, avgInterActionMs: 1500, varianceInterActionMs: 500_000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        digit_span: { task: 'digit_span', interactionCount: 8, avgInterActionMs: 2000, varianceInterActionMs: 1_500_000, hesitationCount: 0, correctionCount: 1, pressureAvailable: false, behaviorQuality: 'ok' },
+        n_back: { task: 'n_back', interactionCount: 8, avgInterActionMs: 900, varianceInterActionMs: 800_000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        trail_tap: { task: 'trail_tap', interactionCount: 10, avgInterActionMs: 700, varianceInterActionMs: 400_000, hesitationCount: 0, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+      };
+      const summary = computeBehaviorSummary(taskBehaviors);
+      expect(summary.tasksObserved).toBe(5);
+      expect(summary.consistencyScore).toBeGreaterThanOrEqual(0.5);
+      expect(summary.quality).toBe('ok');
+    });
+
+    it('wrongTapCount and hesitationCount thresholds unchanged', () => {
+      const records = [
+        { task: 'trail_tap' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: true, pathSegmentDistance: 100, optimalSegmentDistance: 80 },
+        { task: 'trail_tap' as const, timestamp: 1000, pressure: null, isCorrection: false, isWrongTap: true, pathSegmentDistance: 100, optimalSegmentDistance: 80 },
+        { task: 'trail_tap' as const, timestamp: 2000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: 100, optimalSegmentDistance: 80 },
+      ];
+      const tb = computeTaskBehavior('trail_tap', records);
+      expect(tb.behaviorQuality).toBe('review');
+      expect(tb.wrongTapCount).toBe(2);
     });
   });
 });

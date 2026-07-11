@@ -29,6 +29,19 @@ interface InteractionRecord {
 
 const HESITATION_THRESHOLD_MS = 1500;
 
+// Task-specific variance thresholds for inter-action intervals (ms²).
+// The old single threshold of 500_000 (σ ≈ 707ms) was calibrated for motor tasks
+// but too strict for cognitive tasks where thinking time creates natural variance.
+// See BEHAVIOR_VARIANCE_FIX_01.md — payguard retains the old 500_000 threshold (legacy).
+const VARIANCE_THRESHOLDS: Record<CognitiveTaskName, number> = {
+  reflex: 100_000,       // Fast motor reaction — strict, σ ≈ 316ms
+  stroop: 2_000_000,     // Cognitive conflict — permissive, σ ≈ 1414ms
+  digit_span: 3_000_000, // Memory recall — very permissive, σ ≈ 1732ms
+  n_back: 1_500_000,     // Working memory — permissive, σ ≈ 1225ms
+  trail_tap: 1_000_000,  // Spatial motor — moderate, σ ≈ 1000ms
+  vocal_ran: 2_000_000,  // Vocal response — permissive, σ ≈ 1414ms
+};
+
 function mean(values: number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((s, v) => s + v, 0) / values.length;
@@ -95,7 +108,7 @@ export function computeTaskBehavior(
     behaviorQuality = 'missing';
   } else if (wrongTapCount >= 4 || hesitationCount >= 5) {
     behaviorQuality = 'failed';
-  } else if (wrongTapCount >= 2 || hesitationCount >= 3 || (varianceInterActionMs !== null && varianceInterActionMs > 500000)) {
+  } else if (wrongTapCount >= 2 || hesitationCount >= 3 || (varianceInterActionMs !== null && varianceInterActionMs > VARIANCE_THRESHOLDS[task])) {
     behaviorQuality = 'review';
   }
 
@@ -165,10 +178,14 @@ export function computeBehaviorSummary(
   }
 
   // Overall quality
+  // NOTE: This 'quality' field is what the admin E2E Trace displays as "Behavior quality".
+  // It is computed here (demoguard-app) and can diverge from 'behaviorStatus' computed
+  // in hybrid-vector-api/demoguardFusionTrigger.ts:computeBehaviorStatus() which uses
+  // motorConfidence + tasksObserved only (no consistencyScore). See BEHAVIOR_VARIANCE_FIX_01.md.
   let quality: 'ok' | 'review' | 'failed' = 'failed';
   if (tasksObserved === 0) {
     quality = 'failed';
-  } else if (tasksObserved >= 4 && consistencyScore >= 0.6 && hesitationTotal <= 3) {
+  } else if (tasksObserved >= 4 && consistencyScore >= 0.5 && hesitationTotal <= 3) {
     quality = 'ok';
   } else if (tasksObserved >= 2) {
     quality = 'review';
