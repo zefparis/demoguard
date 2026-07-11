@@ -5,7 +5,7 @@
  * Patents Pending FR2514274 | FR2514546
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props {
   onStart: (sessionPublicId: string) => void;
@@ -13,6 +13,14 @@ interface Props {
 
 export function IdleScreen({ onStart }: Props) {
   const [sessionId, setSessionId] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qs = params.get('sessionPublicId');
+    if (qs && /^hcs_sess_[A-Za-z0-9_-]+$/.test(qs)) {
+      setSessionId(qs);
+    }
+  }, []);
 
   const handleStart = () => {
     const id = sessionId.trim() || `dg_${Date.now().toString(36)}`;
