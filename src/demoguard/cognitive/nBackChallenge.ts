@@ -11,7 +11,7 @@
 import type { NBackSignal, CognitiveQuality } from './cognitiveTypes';
 
 export const NBACK_TRIALS = 8;
-export const NBACK_PRACTICE_TRIALS = 3;
+export const NBACK_PRACTICE_TRIALS = 2;
 export const NBACK_TARGET_RATIO = 0.3;
 export const NBACK_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 export type NBackLetter = (typeof NBACK_LETTERS)[number];
@@ -79,7 +79,6 @@ export function generateNBackPracticeTrials(): NBackTrialConfig[] {
   return [
     { letter: 'C', isTarget: false, isPractice: true },
     { letter: 'C', isTarget: true, isPractice: true },
-    { letter: 'F', isTarget: false, isPractice: true },
   ];
 }
 
