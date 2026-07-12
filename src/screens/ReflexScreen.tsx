@@ -18,6 +18,7 @@ import { recordTaskStart, recordReflexTap } from '../demoguard/behavior/taskBeha
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   session: BehaviorSession;
@@ -28,6 +29,7 @@ interface Props {
 type State = 'waiting' | 'ready' | 'go' | 'too-early' | 'done';
 
 export function ReflexScreen({ session, onComplete }: Props) {
+  const { t } = useI18n();
   const [round, setRound] = useState(0);
   const [state, setState] = useState<State>('waiting');
   const [results, setResults] = useState<ReflexRoundResult[]>([]);
@@ -87,13 +89,13 @@ export function ReflexScreen({ session, onComplete }: Props) {
 
   return (
     <div className="screen">
-      <PhaseHeader title="Réflexe" progress={`2/7 — Round ${Math.min(round + 1, REFLEX_ROUNDS)}/${REFLEX_ROUNDS}`} progressPct={28} />
+      <PhaseHeader title={t('reflex.title')} progress={`2/7 — ${t('reflex.round')} ${Math.min(round + 1, REFLEX_ROUNDS)}/${REFLEX_ROUNDS}`} progressPct={28} />
       <ErrorBoundary onRetry={() => { setRound(0); setResults([]); startRound(); }}>
         <div className={areaClass} onClick={handleTap}>
-          {state === 'waiting' && <p>Attendez le vert…</p>}
-          {state === 'go' && <p style={{ fontSize: 24, fontWeight: 700 }}>TAP !</p>}
-          {state === 'too-early' && <p>Trop tôt ! Attendez…</p>}
-          {state === 'done' && <p>{Math.round(results[results.length - 1]?.ms ?? 0)} ms</p>}
+          {state === 'waiting' && <p>{t('reflex.waitGreen')}</p>}
+          {state === 'go' && <p style={{ fontSize: 24, fontWeight: 700 }}>{t('reflex.tap')}</p>}
+          {state === 'too-early' && <p>{t('reflex.tooEarly')}</p>}
+          {state === 'done' && <p>{Math.round(results[results.length - 1]?.ms ?? 0)} {t('reflex.ms')}</p>}
         </div>
       </ErrorBoundary>
     </div>

@@ -35,8 +35,10 @@ import { ReadinessScreen } from './screens/ReadinessScreen';
 import { SubmittingScreen } from './screens/SubmittingScreen';
 import { DoneScreen } from './screens/DoneScreen';
 import { ErrorScreen } from './screens/ErrorScreen';
+import { useI18n } from './i18n/I18nContext';
 
 export default function App() {
+  const { t } = useI18n();
   const [state, dispatch] = useReducer(demoguardReducer, initialState);
   const { session, reset, getPayload, getTouchDiagnostics } = useBehaviorSession();
   const { lockedHeight, showRotateOverlay } = useLockedShell(state.phase);
@@ -124,7 +126,7 @@ export default function App() {
         {showRotateOverlay && (
           <div className="rotate-overlay">
             <div>📱</div>
-            <p>Veuillez garder votre appareil en mode portrait</p>
+            <p>{t('app.rotatePortrait')}</p>
           </div>
         )}
 
@@ -241,7 +243,7 @@ export default function App() {
 
         {state.phase === 'error' && (
           <ErrorScreen
-            error={state.error ?? 'Une erreur est survenue'}
+            error={state.error ?? t('error.default')}
             onRetry={handleRetry}
             onReset={handleReset}
           />

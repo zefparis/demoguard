@@ -24,6 +24,7 @@ import { recordTaskStart, recordNBackDecision } from '../demoguard/behavior/task
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
 
 type ScreenPhase = 'intro' | 'practice' | 'test';
 
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export function NBackScreen({ session, onComplete }: Props) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<ScreenPhase>('intro');
   const [trials, setTrials] = useState<NBackTrialConfig[]>([]);
   const [practiceTrials] = useState<NBackTrialConfig[]>(() => generateNBackPracticeTrials());
@@ -113,13 +115,13 @@ export function NBackScreen({ session, onComplete }: Props) {
   if (phase === 'intro') {
     return (
       <div className="screen">
-        <PhaseHeader title="Comparaison (N-Back)" progress="5/7" progressPct={71} />
+        <PhaseHeader title={t('nback.title')} progress="5/7" progressPct={71} />
         <div className="nback-intro">
           <p className="nback-intro-title">
-            Vous allez voir une suite de lettres.
+            {t('nback.intro.youWillSee')}
           </p>
           <p className="nback-intro-subtitle">
-            Dites si la lettre affichée est identique à la précédente.
+            {t('nback.intro.subtitle')}
           </p>
 
           <div className="nback-example">
@@ -127,22 +129,22 @@ export function NBackScreen({ session, onComplete }: Props) {
               <span className="nback-example-letter">C</span>
               <span className="nback-example-arrow">→</span>
               <span className="nback-example-letter">C</span>
-              <span className="nback-example-badge nback-example-same">Identique → Oui</span>
+              <span className="nback-example-badge nback-example-same">{t('nback.intro.same')}</span>
             </div>
             <div className="nback-example-row">
               <span className="nback-example-letter">F</span>
               <span className="nback-example-arrow">→</span>
               <span className="nback-example-letter">B</span>
-              <span className="nback-example-badge nback-example-diff">Différent → Non</span>
+              <span className="nback-example-badge nback-example-diff">{t('nback.intro.different')}</span>
             </div>
           </div>
 
           <p className="muted" style={{ textAlign: 'center', marginBottom: 16 }}>
-            2 essais d'entraînement, puis le test réel.
+            {t('nback.intro.practiceInfo')}
           </p>
 
           <button className="btn" onClick={startPractice} style={{ width: '100%' }}>
-            Commencer l'entraînement
+            {t('nback.intro.start')}
           </button>
         </div>
       </div>
@@ -157,7 +159,7 @@ export function NBackScreen({ session, onComplete }: Props) {
   return (
     <div className="screen">
       <PhaseHeader
-        title={isPractice ? 'Comparaison — Entraînement' : 'Comparaison (N-Back)'}
+        title={isPractice ? t('nback.training') : t('nback.title')}
         progress={`5/7 — ${trialIdx + 1}/${totalTrials}`}
         progressPct={71}
       />
@@ -176,11 +178,11 @@ export function NBackScreen({ session, onComplete }: Props) {
         {!showing && feedback === 'none' && (
           <>
             <p className="nback-instruction">
-              Est-ce la même lettre qu'avant ?
+              {t('nback.instruction')}
             </p>
             <div className="nback-buttons">
-              <button className="btn btn-secondary" onClick={() => handleResponse(false)}>Non</button>
-              <button className="btn" onClick={() => handleResponse(true)}>Oui</button>
+              <button className="btn btn-secondary" onClick={() => handleResponse(false)}>{t('nback.no')}</button>
+              <button className="btn" onClick={() => handleResponse(true)}>{t('nback.yes')}</button>
             </div>
           </>
         )}
@@ -190,11 +192,11 @@ export function NBackScreen({ session, onComplete }: Props) {
         )}
 
         {feedback === 'correct' && (
-          <p className="nback-feedback nback-feedback-correct">✓ Correct</p>
+          <p className="nback-feedback nback-feedback-correct">{t('nback.correct')}</p>
         )}
         {feedback === 'incorrect' && (
           <p className="nback-feedback nback-feedback-incorrect">
-            {currentTrials[trialIdx].isTarget ? '✗ C"était identique' : '✗ C"était différent'}
+            {currentTrials[trialIdx].isTarget ? t('nback.wasSame') : t('nback.wasDifferent')}
           </p>
         )}
         {feedback === 'answered' && (

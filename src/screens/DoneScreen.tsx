@@ -6,6 +6,7 @@
  */
 
 import type { DemoGuardSafeResponse } from '../demoguard/types';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   response: DemoGuardSafeResponse | null;
@@ -13,63 +14,64 @@ interface Props {
 }
 
 export function DoneScreen({ response, onReset }: Props) {
+  const { t } = useI18n();
   const ok = response?.ok ?? false;
   const fusion = response?.hybridFusion;
   const decision = fusion?.globalDecision;
-  const decisionLabel = decision === 'APPROVED' ? 'Accepté'
-    : decision === 'REVIEW' ? 'À réviser'
-    : decision === 'REJECTED' ? 'Rejeté'
+  const decisionLabel = decision === 'APPROVED' ? t('done.decision.approved')
+    : decision === 'REVIEW' ? t('done.decision.review')
+    : decision === 'REJECTED' ? t('done.decision.rejected')
     : null;
 
   return (
     <div className="screen-center">
       <div className="result-icon">{ok ? '✅' : '⚠️'}</div>
-      <h2>{ok ? 'Contrôle terminé' : 'Résultat incertain'}</h2>
+      <h2>{ok ? t('done.complete') : t('done.uncertain')}</h2>
       {response && (
         <div className="card" style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-            <span>Statut</span>
+            <span>{t('done.status')}</span>
             <span className="muted">{response.status}</span>
           </div>
           {response.quality_score !== undefined && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Score qualité</span>
+              <span>{t('done.qualityScore')}</span>
               <span className="muted">{response.quality_score}</span>
             </div>
           )}
           {decisionLabel && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Décision</span>
+              <span>{t('done.decision')}</span>
               <span className="muted">{decisionLabel}</span>
             </div>
           )}
           {fusion?.trustLevel && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Niveau de confiance</span>
+              <span>{t('done.trustLevel')}</span>
               <span className="muted">{fusion.trustLevel}</span>
             </div>
           )}
           {fusion?.cognitiveStatus && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Cognition</span>
+              <span>{t('done.cognition')}</span>
               <span className="muted">{fusion.cognitiveStatus}</span>
             </div>
           )}
           {fusion?.vocalStatus && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Voix</span>
+              <span>{t('done.voice')}</span>
               <span className="muted">{fusion.vocalStatus}</span>
             </div>
           )}
           {fusion?.behaviorStatus && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Comportement</span>
+              <span>{t('done.behavior')}</span>
               <span className="muted">{fusion.behaviorStatus}</span>
             </div>
           )}
           {response.traceId && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-              <span>Trace</span>
+              <span>{t('done.trace')}</span>
               <span className="muted" style={{ fontSize: 12 }}>{response.traceId}</span>
             </div>
           )}
@@ -79,7 +81,7 @@ export function DoneScreen({ response, onReset }: Props) {
         </div>
       )}
       <button className="btn" onClick={onReset}>
-        Nouveau contrôle
+        {t('done.newControl')}
       </button>
     </div>
   );

@@ -19,6 +19,7 @@ import { recordTaskStart, recordTrailTap } from '../demoguard/behavior/taskBehav
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   session: BehaviorSession;
@@ -30,6 +31,7 @@ const AREA_W = 300;
 const AREA_H = 320;
 
 export function TrailTapScreen({ session, onComplete }: Props) {
+  const { t } = useI18n();
   const [nodes] = useState<TrailTapNode[]>(() => {
     const normalized = generateNormalizedTrailPoints(TRAIL_TAP_MIN_NODES);
     const radius = computeNodeRadius(AREA_W);
@@ -77,10 +79,10 @@ export function TrailTapScreen({ session, onComplete }: Props) {
 
   return (
     <div className="screen">
-      <PhaseHeader title="Chemin (Trail Tap)" progress="6/7" progressPct={85} />
+      <PhaseHeader title={t('trailTap.title')} progress="6/7" progressPct={85} />
       <ErrorBoundary onRetry={() => { setEvents([]); setNextIdx(0); completedRef.current = false; startTimeRef.current = performance.now(); }}>
         <p className="muted" style={{ textAlign: 'center', marginBottom: 8 }}>
-          Touchez les noeuds dans l'ordre (1 → {nodes.length})
+          {t('trailTap.instruction')} (1 {t('trailTap.to')} {nodes.length})
         </p>
         <div className="trail-area" style={{ width: '100%', maxWidth: AREA_W, margin: '0 auto' }}>
           {nodes.map((node) => {

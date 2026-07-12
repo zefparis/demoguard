@@ -10,6 +10,8 @@ import {
   STROOP_TRIALS,
   generateStroopTrials,
   computeStroopResult,
+  stroopColorWord,
+  type StroopColor,
 } from '../demoguard/cognitive/stroopChallenge';
 import type { StroopSignal } from '../demoguard/cognitive/cognitiveTypes';
 import type { StroopTrialConfig, StroopTrialResult } from '../demoguard/cognitive/stroopChallenge';
@@ -17,6 +19,7 @@ import { recordTaskStart, recordStroopSelection } from '../demoguard/behavior/ta
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
 
 const COLOR_MAP: Record<string, string> = {
   red: '#ef4444',
@@ -32,6 +35,7 @@ interface Props {
 }
 
 export function StroopScreen({ session, onComplete }: Props) {
+  const { t, locale } = useI18n();
   const [trials] = useState<StroopTrialConfig[]>(() => generateStroopTrials(STROOP_TRIALS));
   const [trialIdx, setTrialIdx] = useState(0);
   const [results, setResults] = useState<StroopTrialResult[]>([]);
@@ -64,23 +68,23 @@ export function StroopScreen({ session, onComplete }: Props) {
 
   return (
     <div className="screen">
-      <PhaseHeader title="Couleurs (Stroop)" progress={`3/7 — ${trialIdx + 1}/${trials.length}`} progressPct={42} />
+      <PhaseHeader title={t('stroop.title')} progress={`3/7 — ${trialIdx + 1}/${trials.length}`} progressPct={42} />
       <ErrorBoundary onRetry={() => { setTrialIdx(0); setResults([]); trialStartRef.current = performance.now(); }}>
         <div className="stroop-word" style={{ color: COLOR_MAP[current.displayColor] ?? '#fff' }}>
-          {current.word}
+          {stroopColorWord(current.word, locale)}
         </div>
         <p className="muted" style={{ textAlign: 'center', marginBottom: 12 }}>
-          Sélectionnez la COULEUR affichée
+          {t('stroop.instruction')}
         </p>
         <div className="stroop-options">
-          {Object.entries(COLOR_MAP).map(([name, hex]) => (
+          {(Object.entries(COLOR_MAP) as [StroopColor, string][]).map(([name, hex]) => (
             <button
               key={name}
               className="stroop-option"
               style={{ color: hex }}
               onClick={() => handleSelect(name)}
             >
-              {name}
+              {stroopColorWord(name, locale)}
             </button>
           ))}
         </div>

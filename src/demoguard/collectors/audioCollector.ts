@@ -37,7 +37,10 @@ export function generateChallengeId(): string {
   return `dg_voice_${code}`;
 }
 
-export function generateChallengePhrase(_challengeId: string): string {
+export function generateChallengePhrase(_challengeId: string, locale: string = 'fr'): string {
+  if (locale.startsWith('en')) {
+    return 'I am present and I confirm this check.';
+  }
   return 'Je suis présent et je valide ce contrôle.';
 }
 

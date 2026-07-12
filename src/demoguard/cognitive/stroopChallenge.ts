@@ -17,6 +17,16 @@ export const STROOP_MIN_CONFLICT = 3;
 export const STROOP_COLORS = ['red', 'blue', 'green', 'yellow'] as const;
 export type StroopColor = (typeof STROOP_COLORS)[number];
 
+export const STROOP_COLOR_WORDS: Record<string, Record<StroopColor, string>> = {
+  fr: { red: 'ROUGE', blue: 'BLEU', green: 'VERT', yellow: 'JAUNE' },
+  en: { red: 'RED', blue: 'BLUE', green: 'GREEN', yellow: 'YELLOW' },
+};
+
+export function stroopColorWord(color: StroopColor, locale: string): string {
+  const dict = STROOP_COLOR_WORDS[locale] ?? STROOP_COLOR_WORDS.fr;
+  return dict[color];
+}
+
 export interface StroopTrialConfig {
   word: StroopColor;
   displayColor: StroopColor;

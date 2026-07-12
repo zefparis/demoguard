@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { IdleScreen } from '../src/screens/IdleScreen';
+import { I18nProvider } from '../src/i18n/I18nContext';
 
 function mockLocation(search: string) {
   Object.defineProperty(window, 'location', {
@@ -22,18 +23,29 @@ function mockLocation(search: string) {
 }
 
 describe('IdleScreen — sessionPublicId query param', () => {
+  const originalLanguage = navigator.language;
+
   beforeEach(() => {
     vi.useFakeTimers();
+    Object.defineProperty(navigator, 'language', {
+      value: 'fr-FR',
+      configurable: true,
+    });
+    localStorage.clear();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     mockLocation('');
+    Object.defineProperty(navigator, 'language', {
+      value: originalLanguage,
+      configurable: true,
+    });
   });
 
   it('valid ?sessionPublicId=hcs_sess_abc123 pre-fills the input', async () => {
     mockLocation('?sessionPublicId=hcs_sess_abc123DEF_-');
-    render(<IdleScreen onStart={() => {}} />);
+    render(<I18nProvider><IdleScreen onStart={() => {}} /></I18nProvider>);
     const input = screen.getByPlaceholderText('Session ID (auto si vide)') as HTMLInputElement;
     // useEffect runs after render — flush
     await act(async () => { vi.advanceTimersByTime(0); });
@@ -42,7 +54,7 @@ describe('IdleScreen — sessionPublicId query param', () => {
 
   it('invalid ?sessionPublicId=garbage is ignored — field stays empty', async () => {
     mockLocation('?sessionPublicId=garbage');
-    render(<IdleScreen onStart={() => {}} />);
+    render(<I18nProvider><IdleScreen onStart={() => {}} /></I18nProvider>);
     const input = screen.getByPlaceholderText('Session ID (auto si vide)') as HTMLInputElement;
     await act(async () => { vi.advanceTimersByTime(0); });
     expect(input.value).toBe('');
@@ -51,7 +63,7 @@ describe('IdleScreen — sessionPublicId query param', () => {
   it('no param — field empty, fallback dg_ used on start', async () => {
     mockLocation('');
     const onStart = vi.fn();
-    render(<IdleScreen onStart={onStart} />);
+    render(<I18nProvider><IdleScreen onStart={onStart} /></I18nProvider>);
     const input = screen.getByPlaceholderText('Session ID (auto si vide)') as HTMLInputElement;
     await act(async () => { vi.advanceTimersByTime(0); });
     expect(input.value).toBe('');

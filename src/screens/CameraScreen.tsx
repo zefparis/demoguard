@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { requestCamera, stopCamera, captureSelfieFromVideo } from '../demoguard/collectors/cameraCollector';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   onCaptured: (selfie: import('../demoguard/types').DemoGuardSelfieSignal, selfieB64: string) => void;
@@ -16,9 +17,10 @@ interface Props {
 }
 
 export function CameraScreen({ onCaptured, onError }: Props) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [status, setStatus] = useState('Demande de caméra…');
+  const [status, setStatus] = useState(t('camera.requesting'));
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export function CameraScreen({ onCaptured, onError }: Props) {
           await videoRef.current.play();
         }
         if (!cancelled) {
-          setStatus('Caméra prête. Cliquez pour capturer.');
+          setStatus(t('camera.ready'));
           setReady(true);
         }
       } catch (err) {
@@ -50,7 +52,7 @@ export function CameraScreen({ onCaptured, onError }: Props) {
     try {
       const result = await captureSelfieFromVideo(videoRef.current!, streamRef.current);
       if (result.error) {
-        onError(result.error.kind === 'permission-denied' ? 'Caméra refusée' : result.error.kind === 'unavailable' ? 'Caméra indisponible' : result.error.message);
+        onError(result.error.kind === 'permission-denied' ? t('camera.denied') : result.error.kind === 'unavailable' ? t('camera.unavailable') : result.error.message);
         return;
       }
       if (result.sensitive && result.safe) {
@@ -63,7 +65,7 @@ export function CameraScreen({ onCaptured, onError }: Props) {
 
   return (
     <div className="screen">
-      <PhaseHeader title="Photo selfie" progress="1/7" progressPct={14} />
+      <PhaseHeader title={t('camera.title')} progress="1/7" progressPct={14} />
       <ErrorBoundary>
         <div className="screen-center">
           <video
@@ -81,7 +83,7 @@ export function CameraScreen({ onCaptured, onError }: Props) {
           />
           <p className="muted">{status}</p>
           <button className="btn" onClick={handleCapture} disabled={!ready}>
-            Capturer
+            {t('camera.capture')}
           </button>
         </div>
       </ErrorBoundary>

@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { collectDeviceContext } from '../demoguard/collectors/deviceCollector';
 import { collectPermissions } from '../demoguard/collectors/permissionCollector';
 import { PhaseHeader } from '../components/PhaseHeader';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   onDeviceCollected: (device: ReturnType<typeof collectDeviceContext>) => void;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function PrepScreen({ onDeviceCollected, onPermissionsCollected, onContinuousSignalsStart, onReady, onError }: Props) {
+  const { t } = useI18n();
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -44,10 +46,10 @@ export function PrepScreen({ onDeviceCollected, onPermissionsCollected, onContin
 
   return (
     <div className="screen">
-      <PhaseHeader title="Préparation" progress="0/7" progressPct={0} />
+      <PhaseHeader title={t('prep.title')} progress={t('prep.progress')} progressPct={0} />
       <div className="screen-center">
         <div style={{ fontSize: 32 }}>⚙️</div>
-        <p className="muted">Collecte des informations appareil…</p>
+        <p className="muted">{t('prep.collecting')}</p>
       </div>
     </div>
   );

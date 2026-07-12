@@ -6,12 +6,14 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   onStart: (sessionPublicId: string) => void;
 }
 
 export function IdleScreen({ onStart }: Props) {
+  const { t, toggleLocale } = useI18n();
   const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
@@ -30,11 +32,11 @@ export function IdleScreen({ onStart }: Props) {
   return (
     <div className="screen-center">
       <div style={{ fontSize: 48 }}>🧠</div>
-      <h1>DemoGuard</h1>
-      <p className="muted">Contrôle cognitif mobile</p>
+      <h1>{t('app.title')}</h1>
+      <p className="muted">{t('app.subtitle')}</p>
       <input
         type="text"
-        placeholder="Session ID (auto si vide)"
+        placeholder={t('app.sessionPlaceholder')}
         value={sessionId}
         onChange={(e) => setSessionId(e.target.value)}
         style={{
@@ -49,7 +51,25 @@ export function IdleScreen({ onStart }: Props) {
         }}
       />
       <button className="btn" onClick={handleStart}>
-        Démarrer le contrôle
+        {t('app.start')}
+      </button>
+      <button
+        onClick={toggleLocale}
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          background: 'var(--surface)',
+          border: '1px solid var(--surface-2)',
+          borderRadius: 'var(--radius)',
+          padding: '4px 12px',
+          fontSize: 13,
+          color: 'var(--text)',
+          cursor: 'pointer',
+          minHeight: 32,
+        }}
+      >
+        {t('app.langSwitch')}
       </button>
     </div>
   );

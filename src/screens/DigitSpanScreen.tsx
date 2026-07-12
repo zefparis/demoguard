@@ -17,6 +17,7 @@ import { recordTaskStart, recordDigitSpanKey, recordDigitSpanSubmit } from '../d
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   session: BehaviorSession;
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function DigitSpanScreen({ session, onComplete }: Props) {
+  const { t } = useI18n();
   const [trials] = useState<DigitSpanTrialConfig[]>(() => generateDigitSpanTrials());
   const [trialIdx, setTrialIdx] = useState(0);
   const [results, setResults] = useState<DigitSpanTrialResult[]>([]);
@@ -84,11 +86,11 @@ export function DigitSpanScreen({ session, onComplete }: Props) {
 
   return (
     <div className="screen">
-      <PhaseHeader title="Mémoire (Digit Span)" progress={`4/7 — ${trialIdx + 1}/${trials.length}`} progressPct={57} />
+      <PhaseHeader title={t('digitSpan.title')} progress={`4/7 — ${trialIdx + 1}/${trials.length}`} progressPct={57} />
       <ErrorBoundary onRetry={() => { setTrialIdx(0); setResults([]); showSequence(); }}>
         {showing ? (
           <div className="screen-center">
-            <p className="muted">Mémorisez la séquence :</p>
+            <p className="muted">{t('digitSpan.memorize')}</p>
             <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: 8 }}>
               {current.sequence.join(' ')}
             </div>
@@ -96,7 +98,7 @@ export function DigitSpanScreen({ session, onComplete }: Props) {
         ) : (
           <>
             <div className="screen-center" style={{ flex: '0 0 auto', padding: '16px 0' }}>
-              <p className="muted">Saisissez la séquence ({current.span} chiffres) :</p>
+              <p className="muted">{t('digitSpan.enter')} ({current.span} {t('digitSpan.digits')}) :</p>
               <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4, minHeight: 40 }}>
                 {input.join(' ') || '—'}
               </div>
@@ -107,8 +109,8 @@ export function DigitSpanScreen({ session, onComplete }: Props) {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button className="btn btn-secondary" onClick={handleDelete} style={{ flex: 1 }}>⌫ Effacer</button>
-              <button className="btn" onClick={handleSubmit} disabled={input.length === 0} style={{ flex: 1 }}>Valider</button>
+              <button className="btn btn-secondary" onClick={handleDelete} style={{ flex: 1 }}>{t('digitSpan.delete')}</button>
+              <button className="btn" onClick={handleSubmit} disabled={input.length === 0} style={{ flex: 1 }}>{t('digitSpan.submit')}</button>
             </div>
           </>
         )}

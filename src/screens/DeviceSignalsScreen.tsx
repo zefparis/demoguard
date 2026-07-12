@@ -11,6 +11,7 @@
 
 import { PhaseHeader } from '../components/PhaseHeader';
 import type { DemoGuardSignals } from '../demoguard/types';
+import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
   signals: Partial<DemoGuardSignals>;
@@ -18,19 +19,20 @@ interface Props {
 }
 
 export function DeviceSignalsScreen({ signals, onContinue }: Props) {
+  const { t } = useI18n();
   const summary: string[] = [];
-  if (signals.motion) summary.push(`Motion: ${signals.motion.sample_count} échantillons`);
-  if (signals.orientation) summary.push(`Orientation: ${signals.orientation.changes} changements`);
-  if (signals.touch) summary.push(`Touch: ${signals.touch.touch_count} interactions`);
-  if (signals.visibility) summary.push(`Visibility: ${signals.visibility.blur_count} blur`);
-  if (signals.network) summary.push(`Network: ${signals.network.online ? 'online' : 'offline'}`);
+  if (signals.motion) summary.push(`${t('deviceSignals.motion')}: ${signals.motion.sample_count} ${t('deviceSignals.samples')}`);
+  if (signals.orientation) summary.push(`${t('deviceSignals.orientation')}: ${signals.orientation.changes} ${t('deviceSignals.changes')}`);
+  if (signals.touch) summary.push(`${t('deviceSignals.touch')}: ${signals.touch.touch_count} ${t('deviceSignals.interactions')}`);
+  if (signals.visibility) summary.push(`${t('deviceSignals.visibility')}: ${signals.visibility.blur_count} ${t('deviceSignals.blur')}`);
+  if (signals.network) summary.push(`${t('deviceSignals.network')}: ${signals.network.online ? t('deviceSignals.online') : t('deviceSignals.offline')}`);
 
   return (
     <div className="screen">
-      <PhaseHeader title="Signaux appareil" progress="Collecte continue ✓" progressPct={93} />
+      <PhaseHeader title={t('deviceSignals.title')} progress={t('deviceSignals.progress')} progressPct={93} />
       <div className="screen-center">
         <div style={{ fontSize: 32 }}>📡</div>
-        <p className="muted">Signaux collectés en continu pendant la session</p>
+        <p className="muted">{t('deviceSignals.continuous')}</p>
         {summary.length > 0 && (
           <ul style={{ listStyle: 'none', padding: 0, margin: '12px 0', fontSize: 14, color: '#888' }}>
             {summary.map((s, i) => (
@@ -39,7 +41,7 @@ export function DeviceSignalsScreen({ signals, onContinue }: Props) {
           </ul>
         )}
         <button className="btn" onClick={onContinue}>
-          Continuer
+          {t('review.continue')}
         </button>
       </div>
     </div>

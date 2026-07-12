@@ -14,6 +14,8 @@ import { recordTaskStart } from '../demoguard/behavior/taskBehaviorRecorder';
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { useI18n } from '../i18n/I18nContext';
+import { generateChallengePhrase } from '../demoguard/collectors/audioCollector';
 
 interface Props {
   session: BehaviorSession;
@@ -24,7 +26,9 @@ interface Props {
 type RecordingState = 'idle' | 'recording' | 'processing' | 'done';
 
 export function VoiceScreen({ session, onComplete, onError }: Props) {
+  const { t, locale } = useI18n();
   const [challenge] = useState(() => generateVocalRanChallenge());
+  const [phrase] = useState(() => generateChallengePhrase(challenge.challenge_id, locale));
   const [state, setState] = useState<RecordingState>('idle');
   const startTimeRef = useRef<number>(0);
 
@@ -67,23 +71,23 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
 
   return (
     <div className="screen">
-      <PhaseHeader title="Voix" progress="7/7" progressPct={95} />
+      <PhaseHeader title={t('voice.title')} progress="7/7" progressPct={95} />
       <ErrorBoundary onRetry={() => setState('idle')}>
         <div className="voice-visual">
           <div className={`voice-pulse ${state === 'recording' ? 'recording' : ''}`} />
           {state === 'idle' && (
             <>
-              <p>Lisez à voix haute :</p>
+              <p>{t('voice.readAloud')}</p>
               <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 8 }}>
-                {challenge.sequence.join(' ')}
+                {phrase}
               </p>
-              <p className="muted">Durée : {VOICE_DURATION_MS / 1000}s</p>
-              <button className="btn" onClick={handleRecord}>Enregistrer</button>
+              <p className="muted">{t('voice.duration')}: {VOICE_DURATION_MS / 1000}s</p>
+              <button className="btn" onClick={handleRecord}>{t('voice.record')}</button>
             </>
           )}
-          {state === 'recording' && <p style={{ fontSize: 20, fontWeight: 600 }}>Enregistrement…</p>}
-          {state === 'processing' && <p className="muted">Traitement…</p>}
-          {state === 'done' && <p>Enregistrement terminé ✓</p>}
+          {state === 'recording' && <p style={{ fontSize: 20, fontWeight: 600 }}>{t('voice.recording')}</p>}
+          {state === 'processing' && <p className="muted">{t('voice.processing')}</p>}
+          {state === 'done' && <p>{t('voice.done')}</p>}
         </div>
       </ErrorBoundary>
     </div>

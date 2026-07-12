@@ -7,8 +7,9 @@
  * Patents Pending FR2514274 | FR2514546
  */
 
-import { Component } from 'react';
+import { Component, useContext } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
+import { I18nContext } from '../i18n/I18nContext';
 
 interface Props {
   children: ReactNode;
@@ -17,6 +18,20 @@ interface Props {
 
 interface State {
   hasError: boolean;
+}
+
+function ErrorBoundaryFallback({ onRetry }: { onRetry?: () => void }) {
+  const ctx = useContext(I18nContext);
+  const t = ctx?.t ?? ((k: string) => k);
+  return (
+    <div className="error-boundary">
+      <h3>{t('error.boundary.title')}</h3>
+      <p className="muted">{t('error.boundary.message')}</p>
+      <button className="btn" onClick={onRetry}>
+        {t('error.boundary.retry')}
+      </button>
+    </div>
+  );
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -37,15 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="error-boundary">
-          <h3>Erreur</h3>
-          <p className="muted">Une erreur est survenue pendant ce test.</p>
-          <button className="btn" onClick={this.handleRetry}>
-            Réessayer ce test
-          </button>
-        </div>
-      );
+      return <ErrorBoundaryFallback onRetry={this.handleRetry} />;
     }
     return this.props.children;
   }
