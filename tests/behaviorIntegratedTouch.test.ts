@@ -368,4 +368,122 @@ describe('P10 BEHAVIOR-INTEGRATED-TOUCH', () => {
       expect(tb.wrongTapCount).toBe(2);
     });
   });
+
+  describe('Task-specific hesitation thresholds (BEHAVIOR-HESITATION-FIX-01)', () => {
+    it('Digit Span with 4 hesitations (normal recall pauses) is ok', () => {
+      // 4 gaps > 1500ms during memory recall — normal for digit_span (threshold 4)
+      const records = [
+        { task: 'digit_span' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 2000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 1 (2000ms gap)
+        { task: 'digit_span' as const, timestamp: 3000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // 1000ms gap — no hesitation
+        { task: 'digit_span' as const, timestamp: 4700, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 2 (1700ms gap)
+        { task: 'digit_span' as const, timestamp: 6400, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 3 (1700ms gap)
+        { task: 'digit_span' as const, timestamp: 8100, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 4 (1700ms gap)
+      ];
+      const tb = computeTaskBehavior('digit_span', records);
+      expect(tb.hesitationCount).toBe(4);
+      expect(tb.behaviorQuality).toBe('ok');
+    });
+
+    it('Digit Span with 5 hesitations is review (above threshold 4)', () => {
+      const records = [
+        { task: 'digit_span' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'digit_span' as const, timestamp: 2000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 1
+        { task: 'digit_span' as const, timestamp: 3000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // 1000ms — no hesitation
+        { task: 'digit_span' as const, timestamp: 4700, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 2
+        { task: 'digit_span' as const, timestamp: 6400, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 3
+        { task: 'digit_span' as const, timestamp: 8100, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 4
+        { task: 'digit_span' as const, timestamp: 9800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 5
+      ];
+      const tb = computeTaskBehavior('digit_span', records);
+      expect(tb.hesitationCount).toBe(5);
+      expect(tb.behaviorQuality).toBe('review');
+    });
+
+    it('Reflex with 2 hesitations is review (above threshold 1)', () => {
+      // Reflex is a fast motor task — 2 hesitations is abnormal
+      const records = [
+        { task: 'reflex' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 2000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 1
+        { task: 'reflex' as const, timestamp: 2400, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 4400, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 2
+        { task: 'reflex' as const, timestamp: 4800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('reflex', records);
+      expect(tb.hesitationCount).toBe(2);
+      expect(tb.behaviorQuality).toBe('review');
+    });
+
+    it('Reflex with 4+ hesitations is failed (not just review)', () => {
+      const records = [
+        { task: 'reflex' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 2000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 1
+        { task: 'reflex' as const, timestamp: 2400, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // 400ms — no hesitation
+        { task: 'reflex' as const, timestamp: 4400, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 2
+        { task: 'reflex' as const, timestamp: 6600, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 3
+        { task: 'reflex' as const, timestamp: 8800, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },   // hesitation 4
+      ];
+      const tb = computeTaskBehavior('reflex', records);
+      expect(tb.hesitationCount).toBe(4);
+      expect(tb.behaviorQuality).toBe('failed');
+    });
+
+    it('Full battery with 14 hesitations distributed plausibly → quality ok', () => {
+      // Reproduces last real run: 14 hesitations across 5 tasks
+      // Distribution: reflex 1 (ok), stroop 2 (ok), digit_span 4 (ok), n_back 4 (review), trail_tap 3 (review)
+      // Total: 14. 3 tasks ok, 2 review → okRatio=0.6 → consistencyScore=0.55 >= 0.5 → quality='ok'
+      const taskBehaviors: Partial<Record<string, TaskTouchBehavior>> = {
+        reflex: { task: 'reflex', interactionCount: 5, avgInterActionMs: 350, varianceInterActionMs: 5000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        stroop: { task: 'stroop', interactionCount: 6, avgInterActionMs: 1500, varianceInterActionMs: 500_000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        digit_span: { task: 'digit_span', interactionCount: 8, avgInterActionMs: 2000, varianceInterActionMs: 1_500_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        n_back: { task: 'n_back', interactionCount: 8, avgInterActionMs: 1200, varianceInterActionMs: 800_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+        trail_tap: { task: 'trail_tap', interactionCount: 10, avgInterActionMs: 900, varianceInterActionMs: 400_000, hesitationCount: 3, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+      };
+      const summary = computeBehaviorSummary(taskBehaviors);
+      expect(summary.hesitationTotal).toBe(14);
+      expect(summary.tasksObserved).toBe(5);
+      expect(summary.consistencyScore).toBeGreaterThanOrEqual(0.5);
+      expect(summary.quality).toBe('ok');
+    });
+
+    it('Full battery with all tasks within hesitation thresholds → quality ok', () => {
+      // Best case: each task at or below its threshold
+      const taskBehaviors: Partial<Record<string, TaskTouchBehavior>> = {
+        reflex: { task: 'reflex', interactionCount: 5, avgInterActionMs: 350, varianceInterActionMs: 5000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        stroop: { task: 'stroop', interactionCount: 6, avgInterActionMs: 1500, varianceInterActionMs: 500_000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        digit_span: { task: 'digit_span', interactionCount: 8, avgInterActionMs: 2000, varianceInterActionMs: 1_500_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        n_back: { task: 'n_back', interactionCount: 8, avgInterActionMs: 900, varianceInterActionMs: 800_000, hesitationCount: 3, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        trail_tap: { task: 'trail_tap', interactionCount: 10, avgInterActionMs: 700, varianceInterActionMs: 400_000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+      };
+      const summary = computeBehaviorSummary(taskBehaviors);
+      expect(summary.hesitationTotal).toBe(11);
+      expect(summary.quality).toBe('ok');
+    });
+
+    it('Non-regression: wrongTapCount still triggers review independently', () => {
+      const records = [
+        { task: 'trail_tap' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: true, pathSegmentDistance: 100, optimalSegmentDistance: 80 },
+        { task: 'trail_tap' as const, timestamp: 500, pressure: null, isCorrection: false, isWrongTap: true, pathSegmentDistance: 100, optimalSegmentDistance: 80 },
+        { task: 'trail_tap' as const, timestamp: 1000, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: 100, optimalSegmentDistance: 80 },
+      ];
+      const tb = computeTaskBehavior('trail_tap', records);
+      expect(tb.hesitationCount).toBe(0);
+      expect(tb.wrongTapCount).toBe(2);
+      expect(tb.behaviorQuality).toBe('review');
+    });
+
+    it('Non-regression: variance still triggers review independently', () => {
+      // Reflex with high variance but 0 hesitations
+      const records = [
+        { task: 'reflex' as const, timestamp: 0, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 300, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 600, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 10600, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+        { task: 'reflex' as const, timestamp: 10900, pressure: null, isCorrection: false, isWrongTap: false, pathSegmentDistance: null, optimalSegmentDistance: null },
+      ];
+      const tb = computeTaskBehavior('reflex', records);
+      expect(tb.hesitationCount).toBe(1); // 10000ms gap > 1500ms
+      expect(tb.behaviorQuality).toBe('review'); // triggered by variance > 100k
+    });
+  });
 });

@@ -29,6 +29,19 @@ interface InteractionRecord {
 
 const HESITATION_THRESHOLD_MS = 1500;
 
+// Task-specific max hesitation counts for 'ok' quality.
+// The old single thresholds (review >= 3, failed >= 5) were calibrated for motor tasks
+// but too strict for cognitive tasks where thinking time creates natural pauses > 1500ms.
+// See BEHAVIOR_HESITATION_DIAG_01.md — payguard retains the old global thresholds (legacy).
+const HESITATION_THRESHOLDS_PER_TASK: Record<CognitiveTaskName, number> = {
+  reflex: 1,       // Fast motor reaction — 0-1 hesitation normal
+  stroop: 2,       // Cognitive conflict — 1-2 hesitations normal
+  digit_span: 4,   // Memory recall — 2-4 hesitations normal (recall pauses)
+  n_back: 3,       // Working memory — 1-3 hesitations normal
+  trail_tap: 1,    // Spatial motor — 0-1 hesitation
+  vocal_ran: 2,    // Vocal response — 1-2 hesitations
+};
+
 // Task-specific variance thresholds for inter-action intervals (ms²).
 // The old single threshold of 500_000 (σ ≈ 707ms) was calibrated for motor tasks
 // but too strict for cognitive tasks where thinking time creates natural variance.
@@ -102,13 +115,15 @@ export function computeTaskBehavior(
     }
   }
 
-  // Behavior quality
+  // Behavior quality — hesitation thresholds are task-specific (BEHAVIOR-HESITATION-FIX-01)
+  const hesitOkThreshold = HESITATION_THRESHOLDS_PER_TASK[task];
+  const hesitFailedThreshold = Math.max(4, hesitOkThreshold * 2);
   let behaviorQuality: BehaviorQuality = 'ok';
   if (interactionCount === 0) {
     behaviorQuality = 'missing';
-  } else if (wrongTapCount >= 4 || hesitationCount >= 5) {
+  } else if (wrongTapCount >= 4 || hesitationCount >= hesitFailedThreshold) {
     behaviorQuality = 'failed';
-  } else if (wrongTapCount >= 2 || hesitationCount >= 3 || (varianceInterActionMs !== null && varianceInterActionMs > VARIANCE_THRESHOLDS[task])) {
+  } else if (wrongTapCount >= 2 || hesitationCount > hesitOkThreshold || (varianceInterActionMs !== null && varianceInterActionMs > VARIANCE_THRESHOLDS[task])) {
     behaviorQuality = 'review';
   }
 
@@ -182,10 +197,15 @@ export function computeBehaviorSummary(
   // It is computed here (demoguard-app) and can diverge from 'behaviorStatus' computed
   // in hybrid-vector-api/demoguardFusionTrigger.ts:computeBehaviorStatus() which uses
   // motorConfidence + tasksObserved only (no consistencyScore). See BEHAVIOR_VARIANCE_FIX_01.md.
+  //
+  // Hesitation is now evaluated per-task via behaviorQuality (task-specific thresholds),
+  // not via a global hesitationTotal hard cutoff. The old `hesitationTotal <= 3` was
+  // impossible to meet across 5 heterogeneous cognitive tasks (see BEHAVIOR_HESITATION_DIAG_01.md).
+  // Per-task hesitation is reflected in okRatio → consistencyScore, which gates quality='ok'.
   let quality: 'ok' | 'review' | 'failed' = 'failed';
   if (tasksObserved === 0) {
     quality = 'failed';
-  } else if (tasksObserved >= 4 && consistencyScore >= 0.5 && hesitationTotal <= 3) {
+  } else if (tasksObserved >= 4 && consistencyScore >= 0.5) {
     quality = 'ok';
   } else if (tasksObserved >= 2) {
     quality = 'review';
