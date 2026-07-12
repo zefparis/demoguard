@@ -164,12 +164,22 @@ export function computeBehaviorSummary(
   const rhythmVariance = rhythmVarianceValues.length > 0 ? Math.round(mean(rhythmVarianceValues)) : null;
 
   // Consistency score: based on rhythm regularity and low corrections
+  // hesitationPenalty is now per-task (BEHAVIOR-QUALITY-FIX-01): each task's hesitationCount
+  // is compared to 2× its HESITATION_THRESHOLDS_PER_TASK value, producing a continuous ratio
+  // (0 = no hesitation, 1 = at 2× threshold). The average across tasks gives a per-task
+  // penalty that is coherent with the per-task behaviorQuality and VARIANCE_THRESHOLDS.
+  // The old global `hesitationTotal / 10` penalized all tasks equally for a high total,
+  // even if most tasks were within their individual thresholds.
   let consistencyScore = 0;
   if (tasksObserved > 0) {
     const okTasks = behaviors.filter((b) => b.behaviorQuality === 'ok').length;
     const okRatio = okTasks / tasksObserved;
     const correctionPenalty = Math.min(1, correctionTotal / 10);
-    const hesitationPenalty = Math.min(1, hesitationTotal / 10);
+    const perTaskHesitationPenalties = behaviors.map((b) => {
+      const threshold = HESITATION_THRESHOLDS_PER_TASK[b.task];
+      return Math.min(1, b.hesitationCount / (threshold * 2));
+    });
+    const hesitationPenalty = perTaskHesitationPenalties.reduce((s, p) => s + p, 0) / tasksObserved;
     consistencyScore = Math.max(0, Math.min(1, okRatio * 0.5 + (1 - correctionPenalty) * 0.25 + (1 - hesitationPenalty) * 0.25));
     consistencyScore = Math.round(consistencyScore * 100) / 100;
   }

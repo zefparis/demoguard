@@ -472,6 +472,62 @@ describe('P10 BEHAVIOR-INTEGRATED-TOUCH', () => {
       expect(tb.behaviorQuality).toBe('review');
     });
 
+    it('14 hesitations scenario B (2 ok / 3 review) → consistencyScore >= 0.5 (BEHAVIOR-QUALITY-FIX-01)', () => {
+      // Real-world plausible distribution: hesitations concentrated on reflex/trail_tap (strict thresholds)
+      // reflex 2 (review, threshold 1), stroop 2 (ok, threshold 2), digit_span 4 (ok, threshold 4),
+      // n_back 4 (review, threshold 3), trail_tap 2 (review, threshold 1)
+      // Total: 14. okRatio = 2/5 = 0.4
+      // Old global penalty: min(1, 14/10) = 1.0 → consistencyScore = 0.4*0.5 + 0.25 + 0 = 0.45 < 0.5 → review
+      // New per-task penalty: avg(1.0, 0.5, 0.5, 0.67, 1.0) / 5 = 0.734 → consistencyScore = 0.4*0.5 + 0.25 + (1-0.734)*0.25 = 0.52 >= 0.5 → ok
+      const taskBehaviors: Partial<Record<string, TaskTouchBehavior>> = {
+        reflex: { task: 'reflex', interactionCount: 5, avgInterActionMs: 600, varianceInterActionMs: 5000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+        stroop: { task: 'stroop', interactionCount: 6, avgInterActionMs: 1500, varianceInterActionMs: 500_000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        digit_span: { task: 'digit_span', interactionCount: 8, avgInterActionMs: 2000, varianceInterActionMs: 1_500_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        n_back: { task: 'n_back', interactionCount: 8, avgInterActionMs: 1200, varianceInterActionMs: 800_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+        trail_tap: { task: 'trail_tap', interactionCount: 10, avgInterActionMs: 900, varianceInterActionMs: 400_000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+      };
+      const summary = computeBehaviorSummary(taskBehaviors);
+      expect(summary.hesitationTotal).toBe(14);
+      expect(summary.tasksObserved).toBe(5);
+      expect(summary.consistencyScore).toBeGreaterThanOrEqual(0.5);
+      expect(summary.quality).toBe('ok');
+    });
+
+    it('14 hesitations scenario C (2 ok / 3 review, different distribution) → consistencyScore >= 0.5', () => {
+      // Another plausible distribution: reflex 2, stroop 3, digit_span 4, n_back 3, trail_tap 2
+      // reflex 2 (review), stroop 3 (review), digit_span 4 (ok), n_back 3 (ok), trail_tap 2 (review)
+      const taskBehaviors: Partial<Record<string, TaskTouchBehavior>> = {
+        reflex: { task: 'reflex', interactionCount: 5, avgInterActionMs: 600, varianceInterActionMs: 5000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+        stroop: { task: 'stroop', interactionCount: 6, avgInterActionMs: 1500, varianceInterActionMs: 500_000, hesitationCount: 3, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+        digit_span: { task: 'digit_span', interactionCount: 8, avgInterActionMs: 2000, varianceInterActionMs: 1_500_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        n_back: { task: 'n_back', interactionCount: 8, avgInterActionMs: 900, varianceInterActionMs: 800_000, hesitationCount: 3, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        trail_tap: { task: 'trail_tap', interactionCount: 10, avgInterActionMs: 800, varianceInterActionMs: 400_000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'review' },
+      };
+      const summary = computeBehaviorSummary(taskBehaviors);
+      expect(summary.hesitationTotal).toBe(14);
+      expect(summary.consistencyScore).toBeGreaterThanOrEqual(0.5);
+      expect(summary.quality).toBe('ok');
+    });
+
+    it('High hesitationTotal but most tasks within thresholds → per-task penalty is lenient', () => {
+      // 11 hesitations but all within thresholds (reflex 1, stroop 2, digit_span 4, n_back 3, trail_tap 1)
+      // Old global: min(1, 11/10) = 1.0 → penalty maxed
+      // New per-task: avg(0.5, 0.5, 0.5, 0.5, 0.5) = 0.5 → penalty moderate
+      const taskBehaviors: Partial<Record<string, TaskTouchBehavior>> = {
+        reflex: { task: 'reflex', interactionCount: 5, avgInterActionMs: 350, varianceInterActionMs: 5000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        stroop: { task: 'stroop', interactionCount: 6, avgInterActionMs: 1500, varianceInterActionMs: 500_000, hesitationCount: 2, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        digit_span: { task: 'digit_span', interactionCount: 8, avgInterActionMs: 2000, varianceInterActionMs: 1_500_000, hesitationCount: 4, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        n_back: { task: 'n_back', interactionCount: 8, avgInterActionMs: 900, varianceInterActionMs: 800_000, hesitationCount: 3, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+        trail_tap: { task: 'trail_tap', interactionCount: 10, avgInterActionMs: 700, varianceInterActionMs: 400_000, hesitationCount: 1, correctionCount: 0, pressureAvailable: false, behaviorQuality: 'ok' },
+      };
+      const summary = computeBehaviorSummary(taskBehaviors);
+      expect(summary.hesitationTotal).toBe(11);
+      // All tasks ok → okRatio = 1.0, per-task penalty = 0.5 (each at threshold/2x)
+      // consistencyScore = 1.0*0.5 + 0.25 + 0.5*0.25 = 0.875
+      expect(summary.consistencyScore).toBeGreaterThanOrEqual(0.8);
+      expect(summary.quality).toBe('ok');
+    });
+
     it('Non-regression: variance still triggers review independently', () => {
       // Reflex with high variance but 0 hesitations
       const records = [
