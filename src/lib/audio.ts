@@ -278,6 +278,10 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   const rms = Math.sqrt(sumSq / (mono.length || 1))
   if (isDev) console.log(`[audio] Recording RMS: ${rms.toFixed(4)}, peak: ${Math.max(...mono).toFixed(4)}, samples: ${mono.length}, chunks: ${chunks.length}`)
 
+  // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
+  const firstSamples = Array.from(mono.slice(0, 10)).map(v => v.toFixed(4));
+  console.log(`[DEBUG-AUDIO] recordAudio: chunks=${chunks.length}, totalSamples=${mono.length}, sampleRate=${ctx.sampleRate}, rms=${rms.toFixed(4)}, first10=[${firstSamples.join(', ')}]`);
+
   const resampled = resampleLinear(mono, ctx.sampleRate, TARGET_SR)
 
   return {

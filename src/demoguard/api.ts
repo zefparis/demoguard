@@ -30,6 +30,11 @@ export async function submitDemoGuard(
   const timer = setTimeout(() => controller.abort(), DEMOGUARD_REQUEST_TIMEOUT_MS);
 
   try {
+    // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
+    const payloadStr = JSON.stringify(payload);
+    const voiceB64Len = payload.sensitive?.voice_b64?.length ?? 0;
+    console.log(`[DEBUG-AUDIO] submitDemoGuard: payloadSize=${payloadStr.length} bytes, voiceB64.length=${voiceB64Len}, hasSensitive=${!!payload.sensitive}, keys=${Object.keys(payload.sensitive || {}).join(',')}`);
+
     const res = await fetch(DEMOGUARD_API_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

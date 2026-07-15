@@ -107,6 +107,10 @@ export async function recordVoiceChallenge(
     }
     voiceB64 = btoa(voiceB64);
 
+    // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
+    const rawFirstSamples = samples[0] ? Array.from(samples[0].slice(0, 10)).map(v => v.toFixed(4)) : [];
+    console.log(`[DEBUG-AUDIO] audioCollector: wavBytes=${audioByteLength}, voiceB64.length=${voiceB64.length}, totalSamples=${totalSamples}, durationMsActual=${durationMsActual}, chunksCount=${recording.chunksCount}, first10raw=[${rawFirstSamples.join(', ')}]`);
+
     return {
       safe: {
         recorded: true,
