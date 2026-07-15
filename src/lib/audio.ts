@@ -217,6 +217,9 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
   const ctx = new AudioCtx()
 
+  // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
+  console.log(`[DEBUG-AUDIO] recordAudio: ctx.state at creation = ${ctx.state}, sampleRate = ${ctx.sampleRate}`);
+
   // AudioContext state guard — iOS Safari often starts in 'suspended' state
   // which produces silent buffers (all zeros) until resumed.
   if (ctx.state === 'suspended') {
@@ -241,6 +244,10 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   const source = ctx.createMediaStreamSource(stream)
   const processor = ctx.createScriptProcessor(4096, 1, 1)
   const chunks: Float32Array[] = []
+  // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
+  let dbgOnAudioProcessCount = 0;
+  let dbgFirstBufferLen = 0;
+  let dbgFirstBufferRms = 0;
 
   source.connect(processor)
   // NOTE: processor.connect(ctx.destination) removed — routing mic audio to
@@ -248,6 +255,14 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   // the mic signal itself, degrading voice capture on mobile.
   processor.onaudioprocess = (e) => {
     const data = new Float32Array(e.inputBuffer.getChannelData(0))
+    // [DEBUG-AUDIO] capture stats on first call only
+    if (dbgOnAudioProcessCount === 0) {
+      dbgFirstBufferLen = data.length;
+      let s = 0;
+      for (let i = 0; i < data.length; i++) s += data[i] * data[i];
+      dbgFirstBufferRms = Math.sqrt(s / data.length);
+    }
+    dbgOnAudioProcessCount++;
     chunks.push(data)
   }
 
@@ -283,6 +298,9 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   for (let i = 0; i < mono.length; i++) sumSq += mono[i] * mono[i]
   const rms = Math.sqrt(sumSq / (mono.length || 1))
   if (isDev) console.log(`[audio] Recording RMS: ${rms.toFixed(4)}, peak: ${Math.max(...mono).toFixed(4)}, samples: ${mono.length}, chunks: ${chunks.length}`)
+
+  // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
+  console.log(`[DEBUG-AUDIO] recordAudio: onaudioprocess calls = ${dbgOnAudioProcessCount}, firstBufferLen = ${dbgFirstBufferLen}, firstBufferRms = ${dbgFirstBufferRms.toFixed(6)}, totalChunks = ${chunks.length}, totalSamples = ${totalLen}`);
 
   const resampled = resampleLinear(mono, ctx.sampleRate, TARGET_SR)
 
