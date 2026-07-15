@@ -212,7 +212,13 @@ export interface AudioRecordingResult {
 const isDev = import.meta.env?.DEV ?? false;
 
 export async function recordAudio(durationMs: number): Promise<AudioRecordingResult> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    },
+  })
 
   const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
   const ctx = new AudioCtx()
@@ -237,7 +243,9 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   const chunks: Float32Array[] = []
 
   source.connect(processor)
-  processor.connect(ctx.destination)
+  // NOTE: processor.connect(ctx.destination) removed — routing mic audio to
+  // speaker creates a feedback loop that triggers echo cancellation against
+  // the mic signal itself, degrading voice capture on mobile.
   processor.onaudioprocess = (e) => {
     const data = new Float32Array(e.inputBuffer.getChannelData(0))
     chunks.push(data)
