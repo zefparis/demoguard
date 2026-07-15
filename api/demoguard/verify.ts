@@ -245,6 +245,17 @@ export default async function demoguardVerifyHandler(
     return;
   }
 
+  // [DEBUG-AUDIO-VERCEL] Temporary diagnostic — remove before investor demo
+  const relayBodyStr = JSON.stringify(body);
+  console.log(JSON.stringify({
+    event: '[DEBUG-AUDIO-VERCEL]',
+    sessionPublicId: sessionId,
+    payloadSizeBytes: relayBodyStr.length,
+    voiceB64Length: voiceB64?.length ?? 0,
+    voiceB64Present: hasVoiceB64,
+    audioSizeBucket,
+  }));
+
   // ── Forward to upstream ──
   const targetUrl = getUpstreamUrl();
   const controller = new AbortController();

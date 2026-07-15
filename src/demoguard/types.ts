@@ -72,12 +72,13 @@ export type DemoGuardVocalReasonSafe =
   | 'hcs_vocal_auth_failed'
   | 'hcs_vocal_endpoint_unavailable'
   | 'audio_missing'
+  | 'audio_context_suspended'
   | 'not_attempted';
 
 export type DemoGuardAudioSizeBucket = 'none' | 'small' | 'medium' | 'large';
 
 export type DemoGuardAnalysisMode = 'full_audio' | 'metadata_only' | 'skipped' | 'failed';
-export type DemoGuardAudioPipelineStatus = 'captured' | 'missing' | 'too_short' | 'permission_denied' | 'unsupported';
+export type DemoGuardAudioPipelineStatus = 'captured' | 'missing' | 'too_short' | 'permission_denied' | 'unsupported' | 'context_suspended';
 
 export interface DemoGuardVoiceDiagnostic {
   microphonePermission: 'granted' | 'denied' | 'prompt' | 'unsupported' | 'unknown';

@@ -221,14 +221,20 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   // which produces silent buffers (all zeros) until resumed.
   if (ctx.state === 'suspended') {
     if (isDev) console.log('[audio] AudioContext suspended before recording, attempting resume()');
-    try {
-      await ctx.resume();
-    } catch {
-      // resume() can fail if not triggered by user gesture — non-fatal
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await ctx.resume();
+      } catch {
+        // resume() can fail if not triggered by user gesture — retry
+      }
+      if (ctx.state as string === 'running') break;
+      if (attempt < 3) await new Promise<void>(r => setTimeout(r, 120));
     }
-    if (isDev) console.log('[audio] AudioContext state after resume():', ctx.state);
+    if (isDev) console.log('[audio] AudioContext state after resume() attempts:', ctx.state);
     if (ctx.state as string !== 'running') {
-      console.warn('[audio] AudioContext still not running after resume() — recording may produce silent buffers');
+      stream.getTracks().forEach(t => t.stop());
+      await ctx.close();
+      throw new Error('audio_context_suspended');
     }
   }
 
@@ -277,10 +283,6 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   for (let i = 0; i < mono.length; i++) sumSq += mono[i] * mono[i]
   const rms = Math.sqrt(sumSq / (mono.length || 1))
   if (isDev) console.log(`[audio] Recording RMS: ${rms.toFixed(4)}, peak: ${Math.max(...mono).toFixed(4)}, samples: ${mono.length}, chunks: ${chunks.length}`)
-
-  // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
-  const firstSamples = Array.from(mono.slice(0, 10)).map(v => v.toFixed(4));
-  console.log(`[DEBUG-AUDIO] recordAudio: chunks=${chunks.length}, totalSamples=${mono.length}, sampleRate=${ctx.sampleRate}, rms=${rms.toFixed(4)}, first10=[${firstSamples.join(', ')}]`);
 
   const resampled = resampleLinear(mono, ctx.sampleRate, TARGET_SR)
 

@@ -23,6 +23,7 @@ export const VOICE_DURATION_MS = 7000;
 export type AudioCollectorError =
   | { kind: 'permission-denied' }
   | { kind: 'unavailable' }
+  | { kind: 'audio-context-suspended' }
   | { kind: 'other'; message: string };
 
 export interface AudioCollectorResult {
@@ -107,10 +108,6 @@ export async function recordVoiceChallenge(
     }
     voiceB64 = btoa(voiceB64);
 
-    // [DEBUG-AUDIO] Temporary diagnostic — remove before investor demo
-    const rawFirstSamples = samples[0] ? Array.from(samples[0].slice(0, 10)).map(v => v.toFixed(4)) : [];
-    console.log(`[DEBUG-AUDIO] audioCollector: wavBytes=${audioByteLength}, voiceB64.length=${voiceB64.length}, totalSamples=${totalSamples}, durationMsActual=${durationMsActual}, chunksCount=${recording.chunksCount}, first10raw=[${rawFirstSamples.join(', ')}]`);
-
     return {
       safe: {
         recorded: true,
@@ -148,6 +145,35 @@ export async function recordVoiceChallenge(
       },
     };
   } catch (err) {
+    if (err instanceof Error && err.message === 'audio_context_suspended') {
+      return {
+        safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
+        sensitive: null,
+        error: { kind: 'audio-context-suspended' },
+        diagnostic: {
+          microphonePermission: 'granted',
+          audioCaptured: false,
+          durationMs: null,
+          audioSizeBucket: 'none',
+          payloadPrepared: false,
+          relayAttempted: false,
+          relayAccepted: false,
+          analyzed: false,
+          vocalStatus: 'not_checked',
+          confidenceLevel: null,
+          reasonSafe: 'audio_context_suspended',
+          latencyMs: null,
+          analysisMode: 'skipped',
+          audioPipelineStatus: 'context_suspended',
+          recordingSupported: true,
+          recordingStarted: true,
+          recordingStopped: true,
+          mimeType: null,
+          recorderState: null,
+          chunksCount: null,
+        },
+      };
+    }
     if (err instanceof DOMException) {
       if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
         return {
