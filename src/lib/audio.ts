@@ -212,13 +212,7 @@ export interface AudioRecordingResult {
 const isDev = import.meta.env?.DEV ?? false;
 
 export async function recordAudio(durationMs: number): Promise<AudioRecordingResult> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    },
-  })
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
   const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
   const ctx = new AudioCtx()
