@@ -194,9 +194,13 @@ export interface AudioRecordingResult {
   chunksCount: number;
   blob: Blob | null;
   mimeType: string;
+  debug: {
+    pickedMimeType: string;
+    recorderStateAtStop: string;
+    trackMuted: boolean;
+    trackReadyState: string;
+  };
 }
-
-const isDev = import.meta.env?.DEV ?? false;
 
 function pickMimeType(): string {
   const candidates = [
@@ -220,30 +224,56 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
   const chunks: BlobPart[] = [];
 
+  // Attach listeners BEFORE start() to avoid losing data
   recorder.ondataavailable = (e) => {
     if (e.data && e.data.size > 0) chunks.push(e.data);
   };
 
-  recorder.start();
+  // Build blob inside onstop handler to guarantee all dataavailable chunks are collected
+  let blob: Blob | null = null;
+  const stopPromise = new Promise<void>((resolve) => {
+    recorder.onstop = () => {
+      blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+      resolve();
+    };
+  });
+
+  // Use timeslice (250ms) for periodic dataavailable events — critical on Chrome Android
+  // where without timeslice, dataavailable only fires at stop()
+  recorder.start(250);
 
   await new Promise<void>(resolve => setTimeout(resolve, durationMs));
+
+  const recorderStateAtStop = recorder.state;
+  const track = stream.getAudioTracks()[0];
+  const trackMuted = track ? track.muted : false;
+  const trackReadyState = track ? track.readyState : 'unknown';
 
   if (recorder.state === 'recording') {
     recorder.stop();
   }
 
-  // Wait for final chunk via onstop
-  await new Promise<void>(resolve => {
-    if (recorder.state === 'inactive') return resolve();
-    recorder.onstop = () => resolve();
-  });
+  // Wait for onstop to fire and blob to be assembled
+  if (recorder.state === 'inactive') {
+    // Already stopped — build blob synchronously
+    blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+  } else {
+    await stopPromise;
+  }
 
   stream.getTracks().forEach(t => t.stop());
 
-  const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-  const actualMimeType = blob.type || mimeType || 'audio/webm';
+  const actualMimeType = blob?.type || mimeType || 'audio/webm';
 
-  if (isDev) console.log(`[audio] MediaRecorder: mimeType=${actualMimeType}, blobSize=${blob.size}, chunks=${chunks.length}`);
+  console.log('[AUDIO-GUARD]', JSON.stringify({
+    stage: 'recordAudio',
+    chunks: chunks.length,
+    recorderState: recorderStateAtStop,
+    trackMuted,
+    trackReadyState,
+    mimeType: actualMimeType,
+    blobSize: blob?.size ?? 0,
+  }));
 
   return {
     samples: [],
@@ -251,6 +281,12 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
     chunksCount: chunks.length,
     blob,
     mimeType: actualMimeType,
+    debug: {
+      pickedMimeType: mimeType,
+      recorderStateAtStop,
+      trackMuted,
+      trackReadyState,
+    },
   };
 }
 

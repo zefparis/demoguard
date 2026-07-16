@@ -60,7 +60,15 @@ export async function recordVoiceChallenge(
       return {
         safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
         sensitive: null,
-        error: { kind: 'other', message: 'No audio blob captured' },
+        error: {
+          kind: 'other',
+          message:
+            `No audio blob captured [chunks=${recording.chunksCount}, ` +
+            `state=${recording.debug.recorderStateAtStop}, ` +
+            `trackMuted=${recording.debug.trackMuted}, ` +
+            `trackReadyState=${recording.debug.trackReadyState}, ` +
+            `mimeType=${recording.debug.pickedMimeType || '(default)'}]`,
+        },
         diagnostic: {
           microphonePermission: 'granted',
           audioCaptured: false,
