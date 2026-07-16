@@ -19,7 +19,7 @@ import { generateChallengePhrase } from '../demoguard/collectors/audioCollector'
 
 interface Props {
   session: BehaviorSession;
-  onComplete: (voice: DemoGuardVoiceSignal, diagnostic: VoiceDiagnosticsSafe | null, voiceB64: string | null, mfccSummary: number[] | null, vocalRan: VocalRanSignal) => void;
+  onComplete: (voice: DemoGuardVoiceSignal, diagnostic: VoiceDiagnosticsSafe | null, voiceB64: string | null, vocalRan: VocalRanSignal, voiceMimetype: string | null) => void;
   onError: (reason: string) => void;
 }
 
@@ -54,14 +54,20 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
             relayAttempted: false,
             relayAccepted: false,
             hcsAnalyzed: false,
-            featuresExtracted: result.safe.mfcc_available ?? false,
+            featuresExtracted: false,
             livenessStatus: 'unknown',
             confidence: null,
             latencyMs: null,
           }
         : null;
 
-      onComplete(result.safe, diagnostic, result.sensitive?.voice_b64 ?? null, result.sensitive?.mfcc_summary ?? null, vocalRan);
+      if (result.error && !result.safe.recorded) {
+        onError(result.error.kind === 'other' ? result.error.message : 'Voice recording failed');
+        setState('idle');
+        return;
+      }
+
+      onComplete(result.safe, diagnostic, result.sensitive?.voice_b64 ?? null, vocalRan, result.sensitive?.voice_mimetype ?? null);
       setState('done');
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Voice recording failed');

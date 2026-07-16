@@ -19,6 +19,7 @@ import { buildVoiceDiagnosticsSafe, buildTouchDiagnosticsSafe } from './diagnost
 export interface SensitiveRef {
   selfie_b64: string | null;
   voice_b64: string | null;
+  voice_mimetype?: string | null;
   mfcc_summary: number[] | null;
 }
 
@@ -66,6 +67,7 @@ export function buildDemoGuardPayload(
   const sensitivePayload: DemoGuardSensitive = {};
   if (sensitive.selfie_b64) sensitivePayload.selfie_b64 = sensitive.selfie_b64;
   if (sensitive.voice_b64) sensitivePayload.voice_b64 = sensitive.voice_b64;
+  if (sensitive.voice_mimetype) sensitivePayload.voice_mimetype = sensitive.voice_mimetype;
   if (sensitive.mfcc_summary) sensitivePayload.mfcc_summary = sensitive.mfcc_summary;
 
   return {

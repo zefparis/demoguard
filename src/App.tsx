@@ -51,12 +51,13 @@ export default function App() {
   const sensitiveRef = useRef<SensitiveRef>({
     selfie_b64: null,
     voice_b64: null,
+    voice_mimetype: null,
     mfcc_summary: null,
   });
 
   const handleStart = useCallback((sessionPublicId: string) => {
     reset();
-    sensitiveRef.current = { selfie_b64: null, voice_b64: null, mfcc_summary: null };
+    sensitiveRef.current = { selfie_b64: null, voice_b64: null, voice_mimetype: null, mfcc_summary: null };
     dispatch({ type: 'START', sessionPublicId });
   }, [reset]);
 
@@ -69,11 +70,11 @@ export default function App() {
     voice: DemoGuardVoiceSignal,
     diagnostic: VoiceDiagnosticsSafe | null,
     voiceB64: string | null,
-    mfccSummary: number[] | null,
     vocalRan: VocalRanSignal,
+    voiceMimetype: string | null,
   ) => {
     sensitiveRef.current.voice_b64 = voiceB64;
-    sensitiveRef.current.mfcc_summary = mfccSummary;
+    sensitiveRef.current.voice_mimetype = voiceMimetype;
     dispatch({ type: 'VOICE_CAPTURED', voice, diagnostic, vocalRan });
   }, []);
 
