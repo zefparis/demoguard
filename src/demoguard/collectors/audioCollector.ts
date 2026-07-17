@@ -8,7 +8,7 @@
  * Patents Pending FR2514274 | FR2514546
  */
 
-import { recordAudio, computeVocalEmbedding, encodeWav } from '../../lib/audio';
+import { recordAudio, blobToBase64, computeBlobRmsAndDuration } from '../../lib/audio';
 import type { DemoGuardVoiceSignal, DemoGuardVoiceDiagnostic } from '../types';
 
 function computeAudioSizeBucket(byteLength: number): DemoGuardVoiceDiagnostic['audioSizeBucket'] {
@@ -29,7 +29,7 @@ export type AudioCollectorError =
 
 export interface AudioCollectorResult {
   safe: DemoGuardVoiceSignal;
-  sensitive: { voice_b64: string; mfcc_summary: number[] } | null;
+  sensitive: { voice_b64: string; voice_mimetype?: string } | null;
   error: AudioCollectorError | null;
   diagnostic: DemoGuardVoiceDiagnostic;
 }
@@ -56,9 +56,8 @@ export async function recordVoiceChallenge(
 ): Promise<AudioCollectorResult> {
   try {
     const recording = await recordAudio(durationMs);
-    const samples = recording.samples;
 
-    // ── T5: Check if recording was interrupted (mobile context suspension, track ended, etc.)
+    // ── T5: Check if recording was interrupted (mobile track ended, visibility change, etc.)
     if (recording.interrupted) {
       return {
         safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
@@ -82,18 +81,26 @@ export async function recordVoiceChallenge(
           recordingSupported: true,
           recordingStarted: true,
           recordingStopped: true,
-          mimeType: null,
+          mimeType: recording.mimeType || null,
           recorderState: recording.recorderState,
           chunksCount: recording.chunksCount,
         },
       };
     }
 
-    if (samples.length === 0) {
+    if (!recording.blob || recording.blob.size === 0) {
       return {
         safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
         sensitive: null,
-        error: { kind: 'other', message: 'No audio samples captured' },
+        error: {
+          kind: 'other',
+          message:
+            `No audio blob captured [chunks=${recording.chunksCount}, ` +
+            `state=${recording.debug.recorderStateAtStop}, ` +
+            `trackMuted=${recording.debug.trackMuted}, ` +
+            `trackReadyState=${recording.debug.trackReadyState}, ` +
+            `mimeType=${recording.debug.pickedMimeType || '(default)'}]`,
+        },
         diagnostic: {
           microphonePermission: 'granted',
           audioCaptured: false,
@@ -112,33 +119,61 @@ export async function recordVoiceChallenge(
           recordingSupported: true,
           recordingStarted: true,
           recordingStopped: true,
-          mimeType: null,
+          mimeType: recording.mimeType || null,
           recorderState: recording.recorderState,
           chunksCount: recording.chunksCount,
         },
       };
     }
 
-    const mfccSummary = computeVocalEmbedding(samples);
-    const mfccAvailable = mfccSummary.some((v) => v !== 0);
+    // AUDIO-GUARD: decode blob via AudioContext.decodeAudioData, compute RMS + duration
+    // Block submission if RMS < threshold (silence) or duration < 2s
+    const guardResult = await computeBlobRmsAndDuration(recording.blob);
+    console.log(JSON.stringify({
+      event: '[AUDIO-GUARD]',
+      rms: guardResult.rms.toFixed(6),
+      durationMs: guardResult.durationMs,
+      mimeType: recording.mimeType,
+      blobSize: recording.blob.size,
+      ok: guardResult.ok,
+    }));
 
-    const totalSamples = samples.reduce((s, a) => s + a.length, 0);
-    const sampleRate = 16000;
-    const durationMsActual = Math.round((totalSamples / sampleRate) * 1000);
-
-    const quality: 'ok' | 'low' = durationMsActual > 2000 ? 'ok' : 'low';
-
-    // Encode full audio as 16-bit PCM WAV — not just first 1024 bytes
-    const wavBytes = encodeWav(samples[0], 16000);
-    const audioByteLength = wavBytes.length;
-    // Encode in chunks to avoid call stack overflow on large arrays
-    const CHUNK = 0x8000;
-    let voiceB64 = '';
-    for (let i = 0; i < wavBytes.length; i += CHUNK) {
-      const slice = wavBytes.subarray(i, Math.min(i + CHUNK, wavBytes.length));
-      voiceB64 += String.fromCharCode.apply(null, Array.from(slice));
+    if (!guardResult.ok) {
+      const reason = guardResult.durationMs < 2000 ? 'audio_too_short' : 'audio_too_silent';
+      return {
+        safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
+        sensitive: null,
+        error: { kind: 'other', message: `Enregistrement inaudible (${reason}), réessayez` },
+        diagnostic: {
+          microphonePermission: 'granted',
+          audioCaptured: true,
+          durationMs: guardResult.durationMs,
+          audioSizeBucket: computeAudioSizeBucket(recording.blob.size),
+          payloadPrepared: false,
+          relayAttempted: false,
+          relayAccepted: false,
+          analyzed: false,
+          vocalStatus: 'not_checked',
+          confidenceLevel: null,
+          reasonSafe: reason,
+          latencyMs: null,
+          analysisMode: 'skipped',
+          audioPipelineStatus: reason === 'audio_too_short' ? 'too_short' : 'too_silent',
+          recordingSupported: true,
+          recordingStarted: true,
+          recordingStopped: true,
+          mimeType: recording.mimeType,
+          recorderState: recording.recorderState,
+          chunksCount: recording.chunksCount,
+        },
+      };
     }
-    voiceB64 = btoa(voiceB64);
+
+    // Convert blob to base64 for payload
+    const voiceB64 = await blobToBase64(recording.blob);
+    const audioByteLength = recording.blob.size;
+    const durationMsActual = guardResult.durationMs;
+    const quality: 'ok' | 'low' = durationMsActual > 2000 ? 'ok' : 'low';
 
     return {
       safe: {
@@ -146,11 +181,10 @@ export async function recordVoiceChallenge(
         duration_ms: durationMsActual,
         challenge_id: challengeId,
         quality,
-        mfcc_available: mfccAvailable,
       },
       sensitive: {
         voice_b64: voiceB64,
-        mfcc_summary: mfccSummary,
+        voice_mimetype: recording.mimeType,
       },
       error: null,
       diagnostic: {
@@ -171,12 +205,41 @@ export async function recordVoiceChallenge(
         recordingSupported: true,
         recordingStarted: true,
         recordingStopped: true,
-        mimeType: 'audio/wav',
+        mimeType: recording.mimeType,
         recorderState: recording.recorderState,
         chunksCount: recording.chunksCount,
       },
     };
   } catch (err) {
+    if (err instanceof Error && err.message === 'audio_decode_failed') {
+      return {
+        safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
+        sensitive: null,
+        error: { kind: 'other', message: 'Format audio non décodable, réessayez' },
+        diagnostic: {
+          microphonePermission: 'granted',
+          audioCaptured: true,
+          durationMs: null,
+          audioSizeBucket: 'none',
+          payloadPrepared: false,
+          relayAttempted: false,
+          relayAccepted: false,
+          analyzed: false,
+          vocalStatus: 'not_checked',
+          confidenceLevel: null,
+          reasonSafe: 'audio_decode_failed',
+          latencyMs: null,
+          analysisMode: 'skipped',
+          audioPipelineStatus: 'decode_failed',
+          recordingSupported: true,
+          recordingStarted: true,
+          recordingStopped: true,
+          mimeType: null,
+          recorderState: 'inactive',
+          chunksCount: null,
+        },
+      };
+    }
     if (err instanceof Error && err.message === 'audio_context_suspended') {
       return {
         safe: { recorded: false, quality: 'missing', challenge_id: challengeId },

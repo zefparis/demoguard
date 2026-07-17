@@ -13,7 +13,6 @@ import type { DemoGuardVoiceSignal, SignalQuality } from '../types';
 export function assessAudioQuality(signal: DemoGuardVoiceSignal | null): SignalQuality {
   if (!signal || !signal.recorded) return 'missing';
   if (!signal.duration_ms || signal.duration_ms < 1000) return 'low';
-  if (!signal.mfcc_available) return 'low';
   return signal.quality;
 }
 

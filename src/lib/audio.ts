@@ -4,21 +4,6 @@ function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
 }
 
-function resampleLinear(input: Float32Array, inputRate: number, outputRate: number): Float32Array {
-  if (inputRate === outputRate) return input
-  const ratio = outputRate / inputRate
-  const outLen = Math.max(1, Math.floor(input.length * ratio))
-  const out = new Float32Array(outLen)
-  for (let i = 0; i < outLen; i += 1) {
-    const t = i / ratio
-    const i0 = Math.floor(t)
-    const i1 = Math.min(input.length - 1, i0 + 1)
-    const frac = t - i0
-    out[i] = input[i0] * (1 - frac) + input[i1] * frac
-  }
-  return out
-}
-
 function hzToMel(hz: number): number {
   return 2595 * Math.log10(1 + hz / 700)
 }
@@ -209,91 +194,56 @@ export interface AudioRecordingResult {
   chunksCount: number;
   interrupted: boolean;
   interruptReason?: string;
+  blob: Blob | null;
+  mimeType: string;
+  debug: {
+    pickedMimeType: string;
+    recorderStateAtStop: string;
+    trackMuted: boolean;
+    trackReadyState: string;
+  };
 }
 
-const isDev = import.meta.env?.DEV ?? false;
 const AUDIO_DEBUG = (() => {
   try { return localStorage.getItem('DEMOGUARD_AUDIO_DEBUG') === 'true'; } catch { return false; }
 })();
 
 const dbgLog = (...args: unknown[]) => { if (AUDIO_DEBUG) console.log('[DEBUG-AUDIO]', ...args); };
 
-const SILENCE_RMS_THRESHOLD = 1e-4;
-const SILENCE_CONSECUTIVE_LIMIT = 20;
-const WARMUP_MS = 150;
-const SUSPENDED_ACCUM_LIMIT_MS = 500;
+function pickMimeType(): string {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/ogg;codecs=opus',
+  ];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  return '';
+}
 
 export async function recordAudio(durationMs: number): Promise<AudioRecordingResult> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-  const ctx = new AudioCtx()
+  const mimeType = pickMimeType();
+  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const chunks: BlobPart[] = [];
 
-  dbgLog(`recordAudio: ctx.state at creation = ${ctx.state}, sampleRate = ${ctx.sampleRate}`);
-
-  // AudioContext state guard — iOS Safari often starts in 'suspended' state
-  // which produces silent buffers (all zeros) until resumed.
-  if (ctx.state === 'suspended') {
-    if (isDev) console.log('[audio] AudioContext suspended before recording, attempting resume()');
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await ctx.resume();
-      } catch {
-        // resume() can fail if not triggered by user gesture — retry
-      }
-      if (ctx.state as string === 'running') break;
-      if (attempt < 3) await new Promise<void>(r => setTimeout(r, 120));
-    }
-    if (isDev) console.log('[audio] AudioContext state after resume() attempts:', ctx.state);
-    if (ctx.state as string !== 'running') {
-      stream.getTracks().forEach(t => t.stop());
-      await ctx.close();
-      throw new Error('audio_context_suspended');
-    }
-  }
-
-  // ── T1: AudioContext state monitoring during recording ──────────────
+  // ── T2: MediaStreamTrack readyState monitoring ─────────────────────
   const recordStart = performance.now();
   let audioInterrupted = false;
   let interruptReason = '';
-  let suspendedAccumMs = 0;
-  let suspendedSince = 0;
-
-  const onStateChange = () => {
-    const elapsed = Math.round(performance.now() - recordStart);
-    const state = ctx.state as string;
-    dbgLog(`statechange: state=${state}, elapsed=${elapsed}ms`);
-
-    if (state === 'suspended' || state === 'interrupted') {
-      if (!suspendedSince) suspendedSince = performance.now();
-      // Attempt immediate resume
-      ctx.resume().catch(() => {});
-      dbgLog(`statechange: attempted resume() at ${elapsed}ms`);
-    } else if (state === 'running' && suspendedSince) {
-      suspendedAccumMs += performance.now() - suspendedSince;
-      suspendedSince = 0;
-      dbgLog(`statechange: resumed, suspendedAccumMs=${Math.round(suspendedAccumMs)}ms`);
-      if (suspendedAccumMs > SUSPENDED_ACCUM_LIMIT_MS) {
-        audioInterrupted = true;
-        interruptReason = 'context_suspended_too_long';
-        dbgLog(`statechange: marked interrupted (suspendedAccumMs=${Math.round(suspendedAccumMs)})`);
-      }
-    }
-  };
-  ctx.addEventListener('statechange', onStateChange);
-
-  // ── T2: MediaStreamTrack readyState monitoring ─────────────────────
-  const audioTracks = stream.getAudioTracks();
-  const primaryTrack = audioTracks[0];
+  const track = stream.getAudioTracks()[0];
   const onTrackEnded = () => {
     const elapsed = Math.round(performance.now() - recordStart);
     audioInterrupted = true;
     interruptReason = 'track_ended_prematurely';
     dbgLog(`track ended at ${elapsed}ms`);
   };
-  if (primaryTrack) {
-    primaryTrack.addEventListener('ended', onTrackEnded);
-  }
+  if (track) track.addEventListener('ended', onTrackEnded);
 
   // ── T3: visibilitychange monitoring during recording ───────────────
   const onVisibilityChange = () => {
@@ -306,115 +256,104 @@ export async function recordAudio(durationMs: number): Promise<AudioRecordingRes
   };
   document.addEventListener('visibilitychange', onVisibilityChange);
 
-  const source = ctx.createMediaStreamSource(stream)
-  const processor = ctx.createScriptProcessor(4096, 1, 1)
-  const chunks: Float32Array[] = []
-  let dbgOnAudioProcessCount = 0;
-  let dbgFirstBufferLen = 0;
-  let dbgFirstBufferRms = 0;
+  // Attach listeners BEFORE start() to avoid losing data
+  recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
 
-  // ── T4: Real-time silence detection ────────────────────────────────
-  let consecutiveSilentChunks = 0;
-  let hasSeenRealSignal = false;
-  const SILENCE_RMS = SILENCE_RMS_THRESHOLD;
-  const SILENCE_LIMIT = SILENCE_CONSECUTIVE_LIMIT;
+  dbgLog(`recordAudio: recorder starting, mimeType=${mimeType}`);
 
-  // ── T5bis: Warm-up — discard first ~150ms of buffers (mobile stabilization) ──
-  const warmupDeadline = performance.now() + WARMUP_MS;
-  let warming = true;
+  // Build blob inside onstop handler to guarantee all dataavailable chunks are collected
+  let blob: Blob | null = null;
+  const stopPromise = new Promise<void>((resolve) => {
+    recorder.onstop = () => {
+      blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+      resolve();
+    };
+  });
 
-  source.connect(processor)
-  // NOTE: processor.connect(ctx.destination) removed — routing mic audio to
-  // speaker creates a feedback loop that triggers echo cancellation against
-  // the mic signal itself, degrading voice capture on mobile.
-  processor.onaudioprocess = (e) => {
-    const data = new Float32Array(e.inputBuffer.getChannelData(0))
+  // Use timeslice (250ms) for periodic dataavailable events — critical on Chrome Android
+  // where without timeslice, dataavailable only fires at stop()
+  recorder.start(250);
 
-    // Warm-up: skip early buffers to avoid mobile startup artifacts
-    if (warming) {
-      if (performance.now() < warmupDeadline) return;
-      warming = false;
-      dbgLog('warm-up complete, starting collection');
-    }
+  await new Promise<void>(resolve => setTimeout(resolve, durationMs));
 
-    // Debug stats on first real call
-    if (dbgOnAudioProcessCount === 0) {
-      dbgFirstBufferLen = data.length;
-      let s = 0;
-      for (let i = 0; i < data.length; i++) s += data[i] * data[i];
-      dbgFirstBufferRms = Math.sqrt(s / data.length);
-    }
-    dbgOnAudioProcessCount++;
+  const recorderStateAtStop = recorder.state;
+  const trackMuted = track ? track.muted : false;
+  const trackReadyState = track ? track.readyState : 'unknown';
 
-    // Real-time RMS for silence detection
-    let chunkSumSq = 0;
-    for (let i = 0; i < data.length; i++) chunkSumSq += data[i] * data[i];
-    const chunkRms = Math.sqrt(chunkSumSq / data.length);
-
-    if (chunkRms > SILENCE_RMS) {
-      hasSeenRealSignal = true;
-      consecutiveSilentChunks = 0;
-    } else if (hasSeenRealSignal) {
-      consecutiveSilentChunks++;
-      if (consecutiveSilentChunks >= SILENCE_LIMIT) {
-        const elapsed = Math.round(performance.now() - recordStart);
-        audioInterrupted = true;
-        if (!interruptReason) interruptReason = 'silence_after_signal';
-        dbgLog(`silence detected: ${consecutiveSilentChunks} consecutive silent chunks at ${elapsed}ms`);
-      }
-    }
-
-    chunks.push(data)
+  if (recorder.state === 'recording') {
+    recorder.stop();
   }
 
-  await new Promise<void>(resolve => setTimeout(resolve, durationMs))
+  // Wait for onstop to fire and blob to be assembled
+  if (recorder.state === 'inactive') {
+    blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+  } else {
+    await stopPromise;
+  }
 
   // ── Cleanup all listeners ──────────────────────────────────────────
-  processor.disconnect()
-  source.disconnect()
-  ctx.removeEventListener('statechange', onStateChange);
-  if (primaryTrack) primaryTrack.removeEventListener('ended', onTrackEnded);
+  if (track) track.removeEventListener('ended', onTrackEnded);
   document.removeEventListener('visibilitychange', onVisibilityChange);
-  stream.getTracks().forEach(t => t.stop())
-  await ctx.close()
+  stream.getTracks().forEach(t => t.stop());
 
-  // Zero-chunk guard: check if first chunk is all zeros (sign of context not active during capture)
-  if (chunks.length > 0) {
-    const firstChunk = chunks[0]
-    let allZeros = true
-    for (let i = 0; i < Math.min(firstChunk.length, 256); i++) {
-      if (firstChunk[i] !== 0) { allZeros = false; break }
-    }
-    if (allZeros) {
-      console.warn('[audio] First audio chunk is all zeros — AudioContext may not have been active when recording started');
-    }
-  }
+  const actualMimeType = blob?.type || mimeType || 'audio/webm';
 
-  const totalLen = chunks.reduce((s, c) => s + c.length, 0)
-  const mono = new Float32Array(totalLen)
-  let off = 0
-  for (const c of chunks) {
-    mono.set(c, off)
-    off += c.length
-  }
-
-  // Compute RMS for diagnostics — visible in dev logs, helps identify silent capture
-  let sumSq = 0
-  for (let i = 0; i < mono.length; i++) sumSq += mono[i] * mono[i]
-  const rms = Math.sqrt(sumSq / (mono.length || 1))
-  if (isDev) console.log(`[audio] Recording RMS: ${rms.toFixed(4)}, peak: ${Math.max(...mono).toFixed(4)}, samples: ${mono.length}, chunks: ${chunks.length}`)
-
-  dbgLog(`recordAudio: onaudioprocess calls = ${dbgOnAudioProcessCount}, firstBufferLen = ${dbgFirstBufferLen}, firstBufferRms = ${dbgFirstBufferRms.toFixed(6)}, totalChunks = ${chunks.length}, totalSamples = ${totalLen}, interrupted = ${audioInterrupted}, interruptReason = ${interruptReason || 'none'}`);
-
-  const resampled = resampleLinear(mono, ctx.sampleRate, TARGET_SR)
+  dbgLog(`recordAudio: chunks=${chunks.length}, recorderState=${recorderStateAtStop}, trackMuted=${trackMuted}, trackReadyState=${trackReadyState}, mimeType=${actualMimeType}, blobSize=${blob?.size ?? 0}, interrupted=${audioInterrupted}, interruptReason=${interruptReason || 'none'}`);
 
   return {
-    samples: [resampled],
+    samples: [],
     recorderState: 'inactive',
     chunksCount: chunks.length,
     interrupted: audioInterrupted,
     interruptReason: interruptReason || undefined,
+    blob,
+    mimeType: actualMimeType,
+    debug: {
+      pickedMimeType: mimeType,
+      recorderStateAtStop,
+      trackMuted,
+      trackReadyState,
+    },
+  };
+}
+
+export async function blobToBase64(blob: Blob): Promise<string> {
+  const arrayBuffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(slice));
   }
+  return btoa(binary);
+}
+
+export async function computeBlobRmsAndDuration(blob: Blob): Promise<{ rms: number; durationMs: number; ok: boolean }> {
+  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new AudioCtx();
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch { /* ignore */ }
+  }
+  const arrayBuffer = await blob.arrayBuffer();
+  let audioBuffer: AudioBuffer;
+  try {
+    audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+  } catch (decodeErr) {
+    await ctx.close();
+    throw new Error('audio_decode_failed');
+  }
+  await ctx.close();
+
+  const channelData = audioBuffer.getChannelData(0);
+  let sumSq = 0;
+  for (let i = 0; i < channelData.length; i++) sumSq += channelData[i] * channelData[i];
+  const rms = Math.sqrt(sumSq / (channelData.length || 1));
+  const durationMs = Math.round(audioBuffer.duration * 1000);
+
+  return { rms, durationMs, ok: rms > 0.01 && durationMs >= 2000 };
 }
 
 export function computeVocalEmbedding(samples: Float32Array[]): number[] {

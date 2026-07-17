@@ -15,6 +15,7 @@ import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 export interface SensitiveRef {
   selfie_b64: string | null;
   voice_b64: string | null;
+  voice_mimetype?: string | null;
   mfcc_summary: number[] | null;
 }
 

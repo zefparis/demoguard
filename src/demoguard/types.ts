@@ -74,12 +74,15 @@ export type DemoGuardVocalReasonSafe =
   | 'audio_missing'
   | 'audio_context_suspended'
   | 'audio_interrupted'
+  | 'audio_too_silent'
+  | 'audio_too_short'
+  | 'audio_decode_failed'
   | 'not_attempted';
 
 export type DemoGuardAudioSizeBucket = 'none' | 'small' | 'medium' | 'large';
 
 export type DemoGuardAnalysisMode = 'full_audio' | 'metadata_only' | 'skipped' | 'failed';
-export type DemoGuardAudioPipelineStatus = 'captured' | 'missing' | 'too_short' | 'permission_denied' | 'unsupported' | 'context_suspended' | 'interrupted';
+export type DemoGuardAudioPipelineStatus = 'captured' | 'missing' | 'too_short' | 'too_silent' | 'decode_failed' | 'permission_denied' | 'unsupported' | 'context_suspended' | 'interrupted';
 
 export interface DemoGuardVoiceDiagnostic {
   microphonePermission: 'granted' | 'denied' | 'prompt' | 'unsupported' | 'unknown';
@@ -186,6 +189,7 @@ export interface DemoGuardQuality {
 export interface DemoGuardSensitive {
   selfie_b64?: string;
   voice_b64?: string;
+  voice_mimetype?: string;
   mfcc_summary?: number[];
 }
 
