@@ -24,6 +24,7 @@ export type AudioCollectorError =
   | { kind: 'permission-denied' }
   | { kind: 'unavailable' }
   | { kind: 'audio-context-suspended' }
+  | { kind: 'audio-interrupted'; reason: string }
   | { kind: 'other'; message: string };
 
 export interface AudioCollectorResult {
@@ -56,6 +57,37 @@ export async function recordVoiceChallenge(
   try {
     const recording = await recordAudio(durationMs);
     const samples = recording.samples;
+
+    // ── T5: Check if recording was interrupted (mobile context suspension, track ended, etc.)
+    if (recording.interrupted) {
+      return {
+        safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
+        sensitive: null,
+        error: { kind: 'audio-interrupted', reason: recording.interruptReason ?? 'unknown' },
+        diagnostic: {
+          microphonePermission: 'granted',
+          audioCaptured: false,
+          durationMs: null,
+          audioSizeBucket: 'none',
+          payloadPrepared: false,
+          relayAttempted: false,
+          relayAccepted: false,
+          analyzed: false,
+          vocalStatus: 'not_checked',
+          confidenceLevel: null,
+          reasonSafe: 'audio_interrupted',
+          latencyMs: null,
+          analysisMode: 'skipped',
+          audioPipelineStatus: 'interrupted',
+          recordingSupported: true,
+          recordingStarted: true,
+          recordingStopped: true,
+          mimeType: null,
+          recorderState: recording.recorderState,
+          chunksCount: recording.chunksCount,
+        },
+      };
+    }
 
     if (samples.length === 0) {
       return {

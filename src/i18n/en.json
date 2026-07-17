@@ -60,6 +60,8 @@
   "voice.recording": "Recording…",
   "voice.processing": "Processing…",
   "voice.done": "Recording complete ✓",
+  "voice.interrupted": "Recording was interrupted. Keep the app in the foreground and try again.",
+  "voice.interruptedFinal": "Recording was interrupted twice. Please try again while keeping the app in the foreground.",
 
   "review.title": "Review",
   "review.progress": "Signals collected",

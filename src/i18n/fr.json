@@ -60,6 +60,8 @@
   "voice.recording": "Enregistrement…",
   "voice.processing": "Traitement…",
   "voice.done": "Enregistrement terminé ✓",
+  "voice.interrupted": "L'enregistrement a été interrompu. Gardez l'app au premier plan et réessayez.",
+  "voice.interruptedFinal": "L'enregistrement a été interrompu à deux reprises. Veuillez réessayer en gardant l'application au premier plan.",
 
   "review.title": "Revue",
   "review.progress": "Signaux collectés",

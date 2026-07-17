@@ -30,7 +30,9 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
   const [challenge] = useState(() => generateVocalRanChallenge());
   const [phrase] = useState(() => generateChallengePhrase(challenge.challenge_id, locale));
   const [state, setState] = useState<RecordingState>('idle');
+  const [interruptMsg, setInterruptMsg] = useState<string | null>(null);
   const startTimeRef = useRef<number>(0);
+  const retryRef = useRef<boolean>(false);
 
   useEffect(() => {
     recordTaskStart(session, 'vocal_ran');
@@ -38,9 +40,27 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
 
   const handleRecord = async () => {
     setState('recording');
+    setInterruptMsg(null);
     startTimeRef.current = performance.now();
     try {
       const result = await recordVoiceChallenge(VOICE_DURATION_MS, challenge.challenge_id);
+
+      // ── T5: Handle audio interruption (mobile context suspension, visibility change, etc.)
+      if (result.error?.kind === 'audio-interrupted') {
+        if (!retryRef.current) {
+          retryRef.current = true;
+          setInterruptMsg(t('voice.interrupted'));
+          setState('idle');
+          return;
+        }
+        // Already retried once — fall through to error
+        retryRef.current = false;
+        onError(t('voice.interruptedFinal'));
+        setState('idle');
+        return;
+      }
+
+      retryRef.current = false;
       const durationMs = performance.now() - startTimeRef.current;
       const vocalRan = computeVocalRanResult(challenge, durationMs, result.safe.recorded);
 
@@ -64,6 +84,7 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
       onComplete(result.safe, diagnostic, result.sensitive?.voice_b64 ?? null, result.sensitive?.mfcc_summary ?? null, vocalRan);
       setState('done');
     } catch (err) {
+      retryRef.current = false;
       onError(err instanceof Error ? err.message : 'Voice recording failed');
       setState('idle');
     }
@@ -77,6 +98,9 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
           <div className={`voice-pulse ${state === 'recording' ? 'recording' : ''}`} />
           {state === 'idle' && (
             <>
+              {interruptMsg && (
+                <p style={{ color: '#e67e22', fontWeight: 600, marginBottom: 12 }}>{interruptMsg}</p>
+              )}
               <p>{t('voice.readAloud')}</p>
               <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 8 }}>
                 {phrase}
