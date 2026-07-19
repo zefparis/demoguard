@@ -19,8 +19,15 @@ function isUnsupported(signal: unknown): boolean {
   return signal !== null && typeof signal === 'object' && 'quality' in signal && (signal as { quality: SignalQuality }).quality === 'unsupported';
 }
 
-export function computeSignalCompleteness(signals: DemoGuardSignals): number {
-  const criticalFilled = CRITICAL_SLOTS.filter((s) => signals[s] != null).length;
+// When testScope === 'voice-only', selfie and cognitive tests (except vocal_ran)
+// are not applicable — excluded from both the slot list and the total count.
+const VOICE_ONLY_CRITICAL_SLOTS: (keyof DemoGuardSignals)[] = ['voice'];
+const VOICE_ONLY_COGNITIVE_MODULES = 1; // only vocal_ran
+
+export function computeSignalCompleteness(signals: DemoGuardSignals, testScope?: string | null): number {
+  const isVoiceOnly = testScope === 'voice-only';
+  const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS : CRITICAL_SLOTS;
+  const criticalFilled = criticalSlots.filter((s) => signals[s] != null).length;
   const optionalFilled = OPTIONAL_SLOTS.filter((s) => {
     const sig = signals[s];
     if (sig == null) return false;
@@ -31,11 +38,16 @@ export function computeSignalCompleteness(signals: DemoGuardSignals): number {
   let cognitiveFilled = 0;
   if (signals.cognitive) {
     const cog = signals.cognitive;
-    const cogModules = [cog.reflex, cog.stroop, cog.digit_span, cog.n_back, cog.trail_tap, cog.vocal_ran];
-    cognitiveFilled = cogModules.filter((m) => m !== null).length;
+    if (isVoiceOnly) {
+      cognitiveFilled = cog.vocal_ran ? 1 : 0;
+    } else {
+      const cogModules = [cog.reflex, cog.stroop, cog.digit_span, cog.n_back, cog.trail_tap, cog.vocal_ran];
+      cognitiveFilled = cogModules.filter((m) => m !== null).length;
+    }
   }
 
-  const totalSlots = CRITICAL_SLOTS.length + OPTIONAL_SLOTS.length + 6;
+  const cognitiveTotal = isVoiceOnly ? VOICE_ONLY_COGNITIVE_MODULES : 6;
+  const totalSlots = criticalSlots.length + OPTIONAL_SLOTS.length + cognitiveTotal;
   const filled = criticalFilled + optionalFilled + cognitiveFilled;
   return filled / totalSlots;
 }
@@ -44,8 +56,10 @@ function isDeviceReady(device: DemoGuardDeviceContext): boolean {
   return device.online && !!device.screenWidth && !!device.screenHeight;
 }
 
-function arePermissionsReady(perms: DemoGuardPermissions): boolean {
-  const essential: (keyof DemoGuardPermissions)[] = ['camera', 'microphone'];
+function arePermissionsReady(perms: DemoGuardPermissions, testScope?: string | null): boolean {
+  // In voice-only mode, camera permission is not required
+  const essential: (keyof DemoGuardPermissions)[] =
+    testScope === 'voice-only' ? ['microphone'] : ['camera', 'microphone'];
   return essential.every((p) => perms[p] === 'granted' || perms[p] === 'prompt');
 }
 
@@ -53,13 +67,17 @@ export function computeQuality(
   signals: DemoGuardSignals,
   device: DemoGuardDeviceContext,
   permissions: DemoGuardPermissions,
+  testScope?: string | null,
 ): DemoGuardQuality {
-  const signal_completeness = computeSignalCompleteness(signals);
+  const isVoiceOnly = testScope === 'voice-only';
+  const signal_completeness = computeSignalCompleteness(signals, testScope);
   const device_ready = isDeviceReady(device);
-  const permissions_ready = arePermissionsReady(permissions);
+  const permissions_ready = arePermissionsReady(permissions, testScope);
 
+  // In voice-only mode, selfie is not applicable — only voice is critical
+  const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS : CRITICAL_SLOTS;
   const critical_missing: string[] = [];
-  for (const slot of CRITICAL_SLOTS) {
+  for (const slot of criticalSlots) {
     if (signals[slot] == null) critical_missing.push(slot);
   }
 

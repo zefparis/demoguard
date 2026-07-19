@@ -62,7 +62,7 @@ export function buildDemoGuardPayload(
   const device = state.device!;
   const permissions = state.permissions!;
 
-  const quality = computeQuality(signals, device, permissions);
+  const quality = computeQuality(signals, device, permissions, state.testScope);
 
   const sensitivePayload: DemoGuardSensitive = {};
   if (sensitive.selfie_b64) sensitivePayload.selfie_b64 = sensitive.selfie_b64;

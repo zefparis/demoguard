@@ -21,8 +21,8 @@ export function ReadinessScreen({ state, onSubmit }: Props) {
   const { t } = useI18n();
   const quality = useMemo(() => {
     if (!state.device || !state.permissions) return null;
-    return computeQuality(state.signals, state.device, state.permissions);
-  }, [state.signals, state.device, state.permissions]);
+    return computeQuality(state.signals, state.device, state.permissions, state.testScope);
+  }, [state.signals, state.device, state.permissions, state.testScope]);
 
   const canSubmit = quality?.overall_ready ?? false;
 
