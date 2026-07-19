@@ -14,6 +14,7 @@ import { recordTaskStart } from '../demoguard/behavior/taskBehaviorRecorder';
 import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { VadDebugOverlay } from '../components/VadDebugOverlay';
 import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
@@ -126,6 +127,7 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
           {state === 'done' && <p>{t('voice.done')}</p>}
         </div>
       </ErrorBoundary>
+      <VadDebugOverlay />
     </div>
   );
 }
