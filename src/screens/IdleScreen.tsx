@@ -9,12 +9,13 @@ import { useState, useEffect } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 
 interface Props {
-  onStart: (sessionPublicId: string) => void;
+  onStart: (sessionPublicId: string, testScope?: string | null) => void;
 }
 
 export function IdleScreen({ onStart }: Props) {
   const { t, toggleLocale } = useI18n();
   const [sessionId, setSessionId] = useState('');
+  const [testScope, setTestScope] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -22,11 +23,15 @@ export function IdleScreen({ onStart }: Props) {
     if (qs && /^hcs_sess_[A-Za-z0-9_-]+$/.test(qs)) {
       setSessionId(qs);
     }
+    const scope = params.get('testScope');
+    if (scope === 'voice-only') {
+      setTestScope('voice-only');
+    }
   }, []);
 
   const handleStart = () => {
     const id = sessionId.trim() || `dg_${Date.now().toString(36)}`;
-    onStart(id);
+    onStart(id, testScope);
   };
 
   return (

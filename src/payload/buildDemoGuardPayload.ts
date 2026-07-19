@@ -81,6 +81,7 @@ export function buildDemoGuardPayload(
       permissions,
       signals,
       quality,
+      ...(state.testScope ? { test_scope: state.testScope } : {}),
     },
     sensitive: Object.keys(sensitivePayload).length > 0 ? sensitivePayload : undefined,
   };

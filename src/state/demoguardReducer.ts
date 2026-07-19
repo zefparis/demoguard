@@ -31,6 +31,7 @@ export type Phase =
 export interface DemoGuardState {
   phase: Phase;
   sessionPublicId: string;
+  testScope: string | null;
   startedAt: string | null;
   completedAt: string | null;
   device: DemoGuardDeviceContext | null;
@@ -49,6 +50,7 @@ export interface DemoGuardState {
 export const initialState: DemoGuardState = {
   phase: 'idle',
   sessionPublicId: '',
+  testScope: null,
   startedAt: null,
   completedAt: null,
   device: null,
@@ -78,7 +80,7 @@ export const initialState: DemoGuardState = {
 };
 
 export type Action =
-  | { type: 'START'; sessionPublicId: string }
+  | { type: 'START'; sessionPublicId: string; testScope?: string | null }
   | { type: 'PREP_READY' }
   | { type: 'DEVICE_COLLECTED'; device: DemoGuardDeviceContext }
   | { type: 'PERMISSIONS_COLLECTED'; permissions: DemoGuardPermissions }
@@ -99,7 +101,7 @@ export type Action =
 
 const VALID_TRANSITIONS: Record<Phase, Phase[]> = {
   idle: ['prep'],
-  prep: ['camera', 'error'],
+  prep: ['camera', 'voice', 'error'],
   camera: ['test_reflex', 'error'],
   test_reflex: ['test_colors', 'error'],
   test_colors: ['test_memory', 'error'],
@@ -128,13 +130,15 @@ export function demoguardReducer(state: DemoGuardState, action: Action): DemoGua
         ...initialState,
         phase: 'prep',
         sessionPublicId: action.sessionPublicId,
+        testScope: action.testScope ?? null,
         startedAt: new Date().toISOString(),
       };
     }
 
     case 'PREP_READY': {
-      if (!isValidTransition(state.phase, 'camera')) return state;
-      return { ...state, phase: 'camera' };
+      const nextPhase: Phase = state.testScope === 'voice-only' ? 'voice' : 'camera';
+      if (!isValidTransition(state.phase, nextPhase)) return state;
+      return { ...state, phase: nextPhase };
     }
 
     case 'DEVICE_COLLECTED': {

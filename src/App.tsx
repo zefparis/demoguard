@@ -55,10 +55,10 @@ export default function App() {
     mfcc_summary: null,
   });
 
-  const handleStart = useCallback((sessionPublicId: string) => {
+  const handleStart = useCallback((sessionPublicId: string, testScope?: string | null) => {
     reset();
     sensitiveRef.current = { selfie_b64: null, voice_b64: null, voice_mimetype: null, mfcc_summary: null };
-    dispatch({ type: 'START', sessionPublicId });
+    dispatch({ type: 'START', sessionPublicId, testScope });
   }, [reset]);
 
   const handleSelfieCaptured = useCallback((selfie: DemoGuardSelfieSignal, selfieB64: string) => {

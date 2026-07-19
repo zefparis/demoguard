@@ -236,6 +236,7 @@ export interface DemoGuardPayload {
     permissions: DemoGuardPermissions;
     signals: DemoGuardSignals;
     quality: DemoGuardQuality;
+    test_scope?: string;
   };
   sensitive?: DemoGuardSensitive;
 }
