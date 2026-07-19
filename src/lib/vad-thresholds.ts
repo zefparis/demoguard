@@ -63,3 +63,15 @@ export const MIN_VOICED_DURATION_MS = readNumberEnv('MIN_VOICED_DURATION_MS', 30
  * Client-only constant — not shared with backend or relay.
  */
 export const MAX_RECORDING_MS = readNumberEnv('MAX_RECORDING_MS', 12000);
+
+/**
+ * Maximum gap (ms) between two voiced segments to merge them into one.
+ *
+ * Used by extractVoiceSegments in hybrid-vector-api and hcs-u7-backend.
+ * The client-side VAD (vadRecorder.ts) doesn't use segment-based filtering,
+ * but this constant must stay synchronized across repos for calibration.
+ *
+ * See hybrid-vector-api/src/services/vocalQuickGate/vad-thresholds.ts for
+ * full documentation.
+ */
+export const VOICE_SEGMENT_MERGE_GAP_MS = readNumberEnv('VOICE_SEGMENT_MERGE_GAP_MS', 200);
