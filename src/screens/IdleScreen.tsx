@@ -25,6 +25,7 @@ export function IdleScreen({ onStart }: Props) {
     }
     // Use getAll() for robustness against duplicate query params — take first value
     const scopes = params.getAll('testScope');
+    console.log('[IdleScreen] testScope from URL:', scopes.length > 0 ? scopes[0] : '(not present)', 'all values:', scopes);
     if (scopes.length > 0 && scopes[0] === 'voice-only') {
       setTestScope('voice-only');
     }

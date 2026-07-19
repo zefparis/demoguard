@@ -126,6 +126,7 @@ function isValidTransition(from: Phase, to: Phase): boolean {
 export function demoguardReducer(state: DemoGuardState, action: Action): DemoGuardState {
   switch (action.type) {
     case 'START': {
+      console.log('[Reducer] START — testScope:', action.testScope ?? '(null)');
       return {
         ...initialState,
         phase: 'prep',
@@ -137,6 +138,7 @@ export function demoguardReducer(state: DemoGuardState, action: Action): DemoGua
 
     case 'PREP_READY': {
       const nextPhase: Phase = state.testScope === 'voice-only' ? 'voice' : 'camera';
+      console.log('[Reducer] PREP_READY — testScope:', state.testScope, '→ nextPhase:', nextPhase);
       if (!isValidTransition(state.phase, nextPhase)) return state;
       return { ...state, phase: nextPhase };
     }
