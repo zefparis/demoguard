@@ -112,10 +112,25 @@ describe('VAD constants', () => {
 describe('VAD recording flow simulation', () => {
   let originalMediaDevices: PropertyDescriptor | undefined;
   let originalAudioContext: typeof window.AudioContext | undefined;
+  let originalBlobArrayBuffer: typeof Blob.prototype.arrayBuffer | undefined;
 
   beforeEach(() => {
     originalMediaDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
     originalAudioContext = window.AudioContext;
+    // Polyfill Blob.arrayBuffer for jsdom (not implemented in older versions)
+    if (!Blob.prototype.arrayBuffer) {
+      originalBlobArrayBuffer = undefined;
+      Blob.prototype.arrayBuffer = async function (): Promise<ArrayBuffer> {
+        const reader = new FileReader();
+        return new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(this);
+        });
+      };
+    } else {
+      originalBlobArrayBuffer = Blob.prototype.arrayBuffer;
+    }
   });
 
   afterEach(() => {
@@ -126,6 +141,11 @@ describe('VAD recording flow simulation', () => {
     }
     if (originalAudioContext) {
       window.AudioContext = originalAudioContext;
+    }
+    if (originalBlobArrayBuffer !== undefined) {
+      Blob.prototype.arrayBuffer = originalBlobArrayBuffer;
+    } else {
+      delete (Blob.prototype as unknown as Record<string, unknown>).arrayBuffer;
     }
     vi.restoreAllMocks();
   });
@@ -174,12 +194,19 @@ describe('VAD recording flow simulation', () => {
   function createMockRecorder() {
     const recorder = {
       state: 'recording' as 'recording' | 'inactive',
-      start: vi.fn(),
-      stop: vi.fn(function (this: { state: string; onstop: (() => void) | null }) {
+      start: vi.fn(function (this: { state: 'recording' | 'inactive' }) {
+        // Reset state so retry attempts can record again with the same mock
+        this.state = 'recording';
+      }),
+      stop: vi.fn(function (this: { state: string; onstop: (() => void) | null; ondataavailable: ((e: { data: Blob }) => void) | null }) {
+        // Fire ondataavailable with a real Blob so blob.arrayBuffer() works and blob.size > 0
+        if (this.ondataavailable) {
+          this.ondataavailable({ data: new Blob(['dummy-audio'], { type: 'audio/webm' }) });
+        }
         this.state = 'inactive';
         if (this.onstop) this.onstop();
       }),
-      ondataavailable: null as ((e: { data: { size: number } }) => void) | null,
+      ondataavailable: null as ((e: { data: Blob }) => void) | null,
       onstop: null as (() => void) | null,
     };
     return recorder;
@@ -262,4 +289,117 @@ describe('VAD recording flow simulation', () => {
 
     restoreMediaRecorder(originalMR);
   }, 10000);
+
+  // ─── Post-encode VAD validation tests ─────────────────────────────
+
+  /**
+   * Helper: create a mock AudioBuffer with controllable energy level.
+   * When voiced=true, fills with high-energy samples (0.5).
+   * When voiced=false, fills with near-zero samples (0.0001).
+   */
+  function createMockAudioBuffer(voiced: boolean, length = 48000 * 5) {
+    // Use 0.0 for silence (not 0.0001) — after normalization 0/maxEnergy=0 < threshold
+    // Use 0.5 for voiced — after normalization 0.25/0.25=1.0 > threshold
+    const fillValue = voiced ? 0.5 : 0.0;
+    const samples = new Float32Array(length);
+    samples.fill(fillValue);
+    return {
+      getChannelData: vi.fn(() => samples),
+      sampleRate: 48000,
+      duration: length / 48000,
+    };
+  }
+
+  it('triggers automatic retry when live VAD passes but post-encode VAD is insufficient', async () => {
+    const mockStream = createMockStream();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: vi.fn(() => Promise.resolve(mockStream)) },
+      configurable: true,
+      writable: true,
+    });
+
+    // Live analyser returns high energy → live VAD will pass
+    const mockAnalyser = createMockAnalyser(0.5);
+    const mockCtx = createMockAudioContext(mockAnalyser);
+    // decodeAudioData returns a silent buffer (simulating lossy compression killing voiced segments)
+    const mockAudioBuffer = createMockAudioBuffer(false);
+    (mockCtx as unknown as { decodeAudioData: unknown }).decodeAudioData = vi.fn(() => Promise.resolve(mockAudioBuffer));
+    window.AudioContext = vi.fn(() => mockCtx) as unknown as typeof window.AudioContext;
+
+    const mockRecorder = createMockRecorder();
+    const originalMR = setupMediaRecorderMock(mockRecorder);
+
+    vi.useFakeTimers();
+
+    const { recordAudioWithVad } = await import('../src/lib/vadRecorder');
+    const recordPromise = recordAudioWithVad({ minVoicedDurationMs: 1000, maxRecordingMs: 5000 });
+
+    // Advance through first attempt's live VAD accumulation
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(2000);
+    // First attempt completes, post-encode validation runs, retry starts
+    // Advance through second attempt's live VAD accumulation
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(2000);
+
+    const result = await recordPromise;
+
+    // Retry should have been triggered
+    expect(result.postEncodeRetry).toBe(true);
+    // Post-encode voiced duration should be 0 (silent mock buffer)
+    expect(result.postEncodeVoicedDurationMs).toBe(0);
+    // Fail-closed: both attempts had insufficient post-encode → timeout
+    expect(result.timeout).toBe(true);
+
+    vi.useRealTimers();
+    restoreMediaRecorder(originalMR);
+  });
+
+  it('accepts recording when post-encode VAD is sufficient after retry', async () => {
+    const mockStream = createMockStream();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: vi.fn(() => Promise.resolve(mockStream)) },
+      configurable: true,
+      writable: true,
+    });
+
+    const mockAnalyser = createMockAnalyser(0.5);
+    const mockCtx = createMockAudioContext(mockAnalyser);
+
+    // First decodeAudioData call returns silent (compression killed voice)
+    // Second call returns voiced (retry's blob decodes properly)
+    const silentBuffer = createMockAudioBuffer(false);
+    const voicedBuffer = createMockAudioBuffer(true);
+    let decodeCallCount = 0;
+    (mockCtx as unknown as { decodeAudioData: unknown }).decodeAudioData = vi.fn(() => {
+      decodeCallCount++;
+      return Promise.resolve(decodeCallCount === 1 ? silentBuffer : voicedBuffer);
+    });
+    window.AudioContext = vi.fn(() => mockCtx) as unknown as typeof window.AudioContext;
+
+    const mockRecorder = createMockRecorder();
+    const originalMR = setupMediaRecorderMock(mockRecorder);
+
+    vi.useFakeTimers();
+
+    const { recordAudioWithVad } = await import('../src/lib/vadRecorder');
+    const recordPromise = recordAudioWithVad({ minVoicedDurationMs: 1000, maxRecordingMs: 5000 });
+
+    // First attempt
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(2000);
+    // Retry attempt
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(2000);
+
+    const result = await recordPromise;
+
+    expect(result.postEncodeRetry).toBe(true);
+    // Retry's post-encode VAD should be sufficient (voiced buffer)
+    expect(result.postEncodeVoicedDurationMs).toBeGreaterThan(0);
+    expect(result.timeout).toBe(false);
+
+    vi.useRealTimers();
+    restoreMediaRecorder(originalMR);
+  });
 });

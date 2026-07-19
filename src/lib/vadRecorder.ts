@@ -67,6 +67,8 @@ export interface VadRecordingResult {
   interruptReason?: string;
   timeout: boolean;
   chunksCount: number;
+  postEncodeVoicedDurationMs: number | null;
+  postEncodeRetry: boolean;
   debug: {
     pickedMimeType: string;
     recorderStateAtStop: string;
@@ -77,7 +79,78 @@ export interface VadRecordingResult {
   };
 }
 
-export async function recordAudioWithVad(options: {
+/**
+ * Post-encode VAD validation: decode the final blob and measure voiced duration
+ * on the decoded signal, using the same energy threshold as the live VAD.
+ *
+ * This catches cases where lossy compression (WebM/Opus) reduces low-energy
+ * voiced segments below the threshold, causing the backend to measure less
+ * voiced duration than the client's live VAD did.
+ *
+ * Returns null if decoding fails.
+ */
+async function measureVoicedDurationFromBlob(
+  blob: Blob,
+  energyThreshold: number,
+): Promise<number | null> {
+  try {
+    const AudioCtx = window.AudioContext
+      || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch { /* ignore */ }
+    }
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    await ctx.close();
+
+    const samples = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+    const frameSize = Math.floor(sampleRate * 0.025); // 25ms frames
+    const hopSize = Math.floor(sampleRate * 0.010);   // 10ms hop
+
+    const energies: number[] = [];
+    for (let i = 0; i < samples.length - frameSize; i += hopSize) {
+      let sumSq = 0;
+      for (let j = i; j < i + frameSize; j++) {
+        sumSq += samples[j] * samples[j];
+      }
+      energies.push(sumSq / frameSize);
+    }
+
+    if (energies.length === 0) return 0;
+
+    const maxEnergy = Math.max(...energies);
+    const normalizedEnergies = energies.map(e => e / (maxEnergy || 1));
+
+    let voicedDurationMs = 0;
+    let inSegment = false;
+    let segmentStart = 0;
+
+    for (let i = 0; i < normalizedEnergies.length; i++) {
+      if (!inSegment && normalizedEnergies[i] > energyThreshold) {
+        inSegment = true;
+        segmentStart = i * hopSize;
+      } else if (inSegment && normalizedEnergies[i] <= energyThreshold) {
+        inSegment = false;
+        const segmentEnd = i * hopSize;
+        voicedDurationMs += ((segmentEnd - segmentStart) / sampleRate) * 1000;
+      }
+    }
+    if (inSegment) {
+      const segmentEnd = samples.length;
+      voicedDurationMs += ((segmentEnd - segmentStart) / sampleRate) * 1000;
+    }
+
+    return voicedDurationMs;
+  } catch (err) {
+    // TEMP-DEBUG: log post-encode decode failure
+    console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'post_encode_decode_failed', error: err instanceof Error ? err.message : String(err) }));
+    return null;
+  }
+}
+
+async function recordAudioWithVadSingleAttempt(options: {
   minVoicedDurationMs?: number;
   maxRecordingMs?: number;
   energyThreshold?: number;
@@ -317,6 +390,8 @@ export async function recordAudioWithVad(options: {
     interruptReason: interruptReason || undefined,
     timeout,
     chunksCount: chunks.length,
+    postEncodeVoicedDurationMs: null,
+    postEncodeRetry: false,
     debug: {
       pickedMimeType: mimeType,
       recorderStateAtStop,
@@ -326,4 +401,91 @@ export async function recordAudioWithVad(options: {
       maxEnergy: vad.getMaxEnergy(),
     },
   };
+}
+
+export async function recordAudioWithVad(options: {
+  minVoicedDurationMs?: number;
+  maxRecordingMs?: number;
+  energyThreshold?: number;
+} = {}): Promise<VadRecordingResult> {
+  const minVoicedMs = options.minVoicedDurationMs ?? MIN_VOICED_DURATION_MS;
+  const energyThreshold = options.energyThreshold ?? VAD_ENERGY_THRESHOLD;
+
+  const firstAttempt = await recordAudioWithVadSingleAttempt(options);
+
+  // Skip post-encode validation if interrupted, timeout, or no blob
+  if (firstAttempt.interrupted || firstAttempt.timeout || !firstAttempt.blob || firstAttempt.blob.size === 0) {
+    return firstAttempt;
+  }
+
+  // Post-encode VAD validation: decode the compressed blob and re-measure voiced duration
+  const postEncodeVoicedMs = await measureVoicedDurationFromBlob(firstAttempt.blob, energyThreshold);
+
+  // TEMP-DEBUG: log the comparison between live and post-encode voiced duration
+  console.log(JSON.stringify({
+    event: '[VAD-DEBUG]',
+    stage: 'post_encode_comparison',
+    liveVoicedDurationMs: firstAttempt.voicedDurationMs,
+    postEncodeVoicedDurationMs: postEncodeVoicedMs !== null ? Math.round(postEncodeVoicedMs) : null,
+    targetVoicedMs: minVoicedMs,
+    blobSize: firstAttempt.blob.size,
+    mimeType: firstAttempt.mimeType,
+  }));
+
+  firstAttempt.postEncodeVoicedDurationMs = postEncodeVoicedMs !== null ? Math.round(postEncodeVoicedMs) : null;
+
+  // If post-encode voiced duration is sufficient, accept the recording
+  if (postEncodeVoicedMs !== null && postEncodeVoicedMs >= minVoicedMs) {
+    return firstAttempt;
+  }
+
+  // If decode failed (null), we can't validate — trust the live VAD result
+  if (postEncodeVoicedMs === null) {
+    return firstAttempt;
+  }
+
+  // Post-encode validation failed — live VAD said OK but compressed audio is insufficient
+  // TEMP-DEBUG: log retry trigger
+  console.log(JSON.stringify({
+    event: '[VAD-DEBUG]',
+    stage: 'post_encode_retry_triggered',
+    liveVoicedDurationMs: firstAttempt.voicedDurationMs,
+    postEncodeVoicedDurationMs: postEncodeVoicedMs !== null ? Math.round(postEncodeVoicedMs) : null,
+    targetVoicedMs: minVoicedMs,
+  }));
+
+  // Automatic retry: one more recording attempt
+  const retryAttempt = await recordAudioWithVadSingleAttempt(options);
+  retryAttempt.postEncodeRetry = true;
+
+  // Validate the retry's blob too
+  if (retryAttempt.interrupted || retryAttempt.timeout || !retryAttempt.blob || retryAttempt.blob.size === 0) {
+    retryAttempt.postEncodeVoicedDurationMs = null;
+    return retryAttempt;
+  }
+
+  const retryPostEncodeVoicedMs = await measureVoicedDurationFromBlob(retryAttempt.blob, energyThreshold);
+
+  // TEMP-DEBUG: log retry post-encode comparison
+  console.log(JSON.stringify({
+    event: '[VAD-DEBUG]',
+    stage: 'post_encode_retry_comparison',
+    liveVoicedDurationMs: retryAttempt.voicedDurationMs,
+    postEncodeVoicedDurationMs: retryPostEncodeVoicedMs !== null ? Math.round(retryPostEncodeVoicedMs) : null,
+    targetVoicedMs: minVoicedMs,
+    blobSize: retryAttempt.blob.size,
+    mimeType: retryAttempt.mimeType,
+  }));
+
+  retryAttempt.postEncodeVoicedDurationMs = retryPostEncodeVoicedMs !== null ? Math.round(retryPostEncodeVoicedMs) : null;
+
+  // If retry's post-encode is sufficient, accept it
+  if (retryPostEncodeVoicedMs !== null && retryPostEncodeVoicedMs >= minVoicedMs) {
+    return retryAttempt;
+  }
+
+  // Fail-closed: both attempts had insufficient post-encode voiced duration
+  // Return the retry attempt but mark as timeout (voiced_duration_timeout)
+  retryAttempt.timeout = true;
+  return retryAttempt;
 }
