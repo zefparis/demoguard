@@ -125,8 +125,19 @@ export async function recordAudioWithVad(options: {
   const AudioCtx = window.AudioContext
     || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const audioCtx = new AudioCtx();
+  // TEMP-DEBUG: log AudioContext state at creation
+  console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'audioCtx_created', state: audioCtx.state, sampleRate: audioCtx.sampleRate }));
   if (audioCtx.state === 'suspended') {
-    try { await audioCtx.resume(); } catch { /* ignore */ }
+    // TEMP-DEBUG: log resume attempt
+    console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'resume_attempt', state: audioCtx.state }));
+    try {
+      await audioCtx.resume();
+      // TEMP-DEBUG: log resume success
+      console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'resume_result', success: true, state: audioCtx.state }));
+    } catch (resumeErr) {
+      // TEMP-DEBUG: log resume failure — this is the prime suspect for intermittent timeout
+      console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'resume_result', success: false, state: audioCtx.state, error: resumeErr instanceof Error ? resumeErr.message : String(resumeErr) }));
+    }
   }
 
   const sourceNode = audioCtx.createMediaStreamSource(stream);
@@ -140,6 +151,7 @@ export async function recordAudioWithVad(options: {
   silentGain.gain.value = 0;
   silentGain.connect(audioCtx.destination);
 
+  let workletFirstFrameReceived = false; // TEMP-DEBUG: detect if worklet never receives frames
   try {
     const blobUrl = URL.createObjectURL(
       new Blob([VAD_PROCESSOR_CODE], { type: 'application/javascript' }),
@@ -151,13 +163,22 @@ export async function recordAudioWithVad(options: {
     sourceNode.connect(workletNode);
     workletNode.connect(silentGain);
     vadMode = 'audioworklet';
+    // TEMP-DEBUG: log worklet path selected and audioCtx state at this point
+    console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'worklet_loaded', state: audioCtx.state }));
 
     workletNode.port.onmessage = (e: MessageEvent) => {
+      if (!workletFirstFrameReceived) {
+        workletFirstFrameReceived = true;
+        // TEMP-DEBUG: log first frame arrival — if this never fires, worklet is loaded but no audio flows
+        console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'worklet_first_frame', state: audioCtx.state, elapsedMs: Math.round(performance.now() - recordStart) }));
+      }
       const { energy, frameSize } = e.data as { energy: number; frameSize: number };
       const frameDurationMs = (frameSize / audioCtx.sampleRate) * 1000;
       vad.processFrame(energy, frameDurationMs);
     };
-  } catch {
+  } catch (workletErr) {
+    // TEMP-DEBUG: log worklet failure reason — was silently swallowed before
+    console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'worklet_failed', error: workletErr instanceof Error ? workletErr.message : String(workletErr), state: audioCtx.state }));
     workletNode = null;
     try {
       analyser = audioCtx.createAnalyser();
@@ -165,11 +186,19 @@ export async function recordAudioWithVad(options: {
       sourceNode.connect(analyser);
       analyser.connect(silentGain);
       vadMode = 'analyser';
+      // TEMP-DEBUG: log analyser fallback selected
+      console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'analyser_fallback', state: audioCtx.state }));
 
+      let analyserFirstFrame = false; // TEMP-DEBUG
       const timeData = new Float32Array(analyser.fftSize);
       vadInterval = setInterval(() => {
         if (!analyser) return;
         analyser.getFloatTimeDomainData(timeData);
+        if (!analyserFirstFrame) {
+          analyserFirstFrame = true;
+          // TEMP-DEBUG: log first analyser frame
+          console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'analyser_first_frame', state: audioCtx.state, elapsedMs: Math.round(performance.now() - recordStart) }));
+        }
         let sumSq = 0;
         for (let i = 0; i < timeData.length; i++) {
           sumSq += timeData[i] * timeData[i];
@@ -184,8 +213,26 @@ export async function recordAudioWithVad(options: {
   }
 
   recorder.start(250);
+  // TEMP-DEBUG: log recorder start and audioCtx state at recording start
+  console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'recorder_started', recorderState: recorder.state, audioCtxState: audioCtx.state, vadMode }));
 
   let timeout = false;
+  // TEMP-DEBUG: periodic voiced-duration sampler — logs every 1000ms to see if accumulation progresses
+  const debugSampler = setInterval(() => {
+    const elapsed = Math.round(performance.now() - recordStart);
+    console.log(JSON.stringify({
+      event: '[VAD-DEBUG]',
+      stage: 'progress_sample',
+      elapsedMs: elapsed,
+      voicedDurationMs: Math.round(vad.getVoicedDurationMs()),
+      targetVoicedMs: minVoicedMs,
+      audioCtxState: audioCtx.state,
+      vadMode,
+      maxEnergy: vad.getMaxEnergy(),
+      workletFirstFrameReceived,
+    }));
+  }, 1000);
+
   await new Promise<void>((resolve) => {
     if (vadMode === 'none') {
       setTimeout(resolve, maxRecordingMs);
@@ -212,6 +259,8 @@ export async function recordAudioWithVad(options: {
       }
     }, 50);
   });
+
+  clearInterval(debugSampler); // TEMP-DEBUG: stop periodic sampler
 
   const recorderStateAtStop = recorder.state;
   const trackMuted = track ? track.muted : false;
@@ -254,6 +303,9 @@ export async function recordAudioWithVad(options: {
     blobSize: blob?.size ?? 0,
     chunksCount: chunks.length,
     maxEnergy: vad.getMaxEnergy(),
+    // TEMP-DEBUG: additional diagnostic fields for intermittent timeout investigation
+    workletFirstFrameReceived, // false = worklet loaded but never got audio (suspended ctx?)
+    audioCtxStateAtStop: audioCtx.state, // 'closed' expected after close()
   }));
 
   return {
