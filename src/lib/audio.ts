@@ -210,7 +210,7 @@ const AUDIO_DEBUG = (() => {
 
 const dbgLog = (...args: unknown[]) => { if (AUDIO_DEBUG) console.log('[DEBUG-AUDIO]', ...args); };
 
-function pickMimeType(): string {
+export function pickMimeType(): string {
   const candidates = [
     'audio/webm;codecs=opus',
     'audio/webm',

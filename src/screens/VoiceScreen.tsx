@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { recordVoiceChallenge, VOICE_DURATION_MS } from '../demoguard/collectors/audioCollector';
+import { recordVoiceChallenge, MIN_VOICED_DURATION_MS, MAX_RECORDING_MS } from '../demoguard/collectors/audioCollector';
 import { generateVocalRanChallenge, computeVocalRanResult } from '../demoguard/cognitive/vocalRanChallenge';
 import type { VocalRanSignal } from '../demoguard/cognitive/cognitiveTypes';
 import type { DemoGuardVoiceSignal, VoiceDiagnosticsSafe } from '../demoguard/types';
@@ -15,7 +15,6 @@ import type { BehaviorSession } from '../demoguard/behavior/behaviorSession';
 import { PhaseHeader } from '../components/PhaseHeader';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useI18n } from '../i18n/I18nContext';
-import { generateChallengePhrase } from '../demoguard/collectors/audioCollector';
 
 interface Props {
   session: BehaviorSession;
@@ -26,9 +25,9 @@ interface Props {
 type RecordingState = 'idle' | 'recording' | 'processing' | 'done';
 
 export function VoiceScreen({ session, onComplete, onError }: Props) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [challenge] = useState(() => generateVocalRanChallenge());
-  const [phrase] = useState(() => generateChallengePhrase(challenge.challenge_id, locale));
+  const phrase = challenge.sequence.join(' ');
   const [state, setState] = useState<RecordingState>('idle');
   const [interruptMsg, setInterruptMsg] = useState<string | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -43,7 +42,14 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
     setInterruptMsg(null);
     startTimeRef.current = performance.now();
     try {
-      const result = await recordVoiceChallenge(VOICE_DURATION_MS, challenge.challenge_id);
+      const result = await recordVoiceChallenge(challenge.challenge_id);
+
+      // ── VAD timeout: not enough voiced audio within MAX_RECORDING_MS
+      if (result.error?.kind === 'voiced-duration-timeout') {
+        onError(t('voice.voicedDurationTimeout'));
+        setState('idle');
+        return;
+      }
 
       // ── T5: Handle audio interruption (mobile context suspension, visibility change, etc.)
       if (result.error?.kind === 'audio-interrupted') {
@@ -111,7 +117,7 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
               <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 8 }}>
                 {phrase}
               </p>
-              <p className="muted">{t('voice.duration')}: {VOICE_DURATION_MS / 1000}s</p>
+              <p className="muted">{t('voice.durationTarget', { min: MIN_VOICED_DURATION_MS / 1000, max: MAX_RECORDING_MS / 1000 })}</p>
               <button className="btn" onClick={handleRecord}>{t('voice.record')}</button>
             </>
           )}

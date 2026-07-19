@@ -77,12 +77,13 @@ export type DemoGuardVocalReasonSafe =
   | 'audio_too_silent'
   | 'audio_too_short'
   | 'audio_decode_failed'
+  | 'voiced_duration_timeout'
   | 'not_attempted';
 
 export type DemoGuardAudioSizeBucket = 'none' | 'small' | 'medium' | 'large';
 
 export type DemoGuardAnalysisMode = 'full_audio' | 'metadata_only' | 'skipped' | 'failed';
-export type DemoGuardAudioPipelineStatus = 'captured' | 'missing' | 'too_short' | 'too_silent' | 'decode_failed' | 'permission_denied' | 'unsupported' | 'context_suspended' | 'interrupted';
+export type DemoGuardAudioPipelineStatus = 'captured' | 'missing' | 'too_short' | 'too_silent' | 'decode_failed' | 'permission_denied' | 'unsupported' | 'context_suspended' | 'interrupted' | 'voiced_duration_timeout';
 
 export interface DemoGuardVoiceDiagnostic {
   microphonePermission: 'granted' | 'denied' | 'prompt' | 'unsupported' | 'unknown';

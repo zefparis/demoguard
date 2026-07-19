@@ -8,7 +8,8 @@
  * Patents Pending FR2514274 | FR2514546
  */
 
-import { recordAudio, blobToBase64, computeBlobRmsAndDuration } from '../../lib/audio';
+import { blobToBase64, computeBlobRmsAndDuration } from '../../lib/audio';
+import { recordAudioWithVad, MIN_VOICED_DURATION_MS, MAX_RECORDING_MS } from '../../lib/vadRecorder';
 import type { DemoGuardVoiceSignal, DemoGuardVoiceDiagnostic } from '../types';
 
 function computeAudioSizeBucket(byteLength: number): DemoGuardVoiceDiagnostic['audioSizeBucket'] {
@@ -18,13 +19,15 @@ function computeAudioSizeBucket(byteLength: number): DemoGuardVoiceDiagnostic['a
   return 'large';
 }
 
-export const VOICE_DURATION_MS = 7000;
+export const VOICE_DURATION_MS = 7000; // Deprecated — kept for backward compat, use MIN_VOICED_DURATION_MS
+export { MIN_VOICED_DURATION_MS, MAX_RECORDING_MS };
 
 export type AudioCollectorError =
   | { kind: 'permission-denied' }
   | { kind: 'unavailable' }
   | { kind: 'audio-context-suspended' }
   | { kind: 'audio-interrupted'; reason: string }
+  | { kind: 'voiced-duration-timeout' }
   | { kind: 'other'; message: string };
 
 export interface AudioCollectorResult {
@@ -39,23 +42,15 @@ export function generateChallengeId(): string {
   return `dg_voice_${code}`;
 }
 
-export function generateChallengePhrase(_challengeId: string, locale: string = 'fr'): string {
-  if (locale.startsWith('en')) {
-    return 'I am present and I confirm this check.';
-  }
-  return 'Je suis présent et je valide ce contrôle.';
-}
-
 export async function requestMicrophone(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({ audio: true });
 }
 
 export async function recordVoiceChallenge(
-  durationMs: number = VOICE_DURATION_MS,
   challengeId: string = generateChallengeId(),
 ): Promise<AudioCollectorResult> {
   try {
-    const recording = await recordAudio(durationMs);
+    const recording = await recordAudioWithVad();
 
     // ── T5: Check if recording was interrupted (mobile track ended, visibility change, etc.)
     if (recording.interrupted) {
@@ -82,7 +77,38 @@ export async function recordVoiceChallenge(
           recordingStarted: true,
           recordingStopped: true,
           mimeType: recording.mimeType || null,
-          recorderState: recording.recorderState,
+          recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
+          chunksCount: recording.chunksCount,
+        },
+      };
+    }
+
+    // ── VAD timeout: MAX_RECORDING_MS reached without enough voiced audio
+    if (recording.timeout) {
+      return {
+        safe: { recorded: false, quality: 'missing', challenge_id: challengeId },
+        sensitive: null,
+        error: { kind: 'voiced-duration-timeout' },
+        diagnostic: {
+          microphonePermission: 'granted',
+          audioCaptured: false,
+          durationMs: recording.totalDurationMs,
+          audioSizeBucket: 'none',
+          payloadPrepared: false,
+          relayAttempted: false,
+          relayAccepted: false,
+          analyzed: false,
+          vocalStatus: 'not_checked',
+          confidenceLevel: null,
+          reasonSafe: 'voiced_duration_timeout',
+          latencyMs: null,
+          analysisMode: 'skipped',
+          audioPipelineStatus: 'voiced_duration_timeout',
+          recordingSupported: true,
+          recordingStarted: true,
+          recordingStopped: true,
+          mimeType: recording.mimeType || null,
+          recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
         },
       };
@@ -120,7 +146,7 @@ export async function recordVoiceChallenge(
           recordingStarted: true,
           recordingStopped: true,
           mimeType: recording.mimeType || null,
-          recorderState: recording.recorderState,
+          recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
         },
       };
@@ -163,7 +189,7 @@ export async function recordVoiceChallenge(
           recordingStarted: true,
           recordingStopped: true,
           mimeType: recording.mimeType,
-          recorderState: recording.recorderState,
+          recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
         },
       };
@@ -206,7 +232,7 @@ export async function recordVoiceChallenge(
         recordingStarted: true,
         recordingStopped: true,
         mimeType: recording.mimeType,
-        recorderState: recording.recorderState,
+        recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
         chunksCount: recording.chunksCount,
       },
     };

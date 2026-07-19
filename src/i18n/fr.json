@@ -62,6 +62,8 @@
   "voice.done": "Enregistrement terminé ✓",
   "voice.interrupted": "L'enregistrement a été interrompu. Gardez l'app au premier plan et réessayez.",
   "voice.interruptedFinal": "L'enregistrement a été interrompu à deux reprises. Veuillez réessayer en gardant l'application au premier plan.",
+  "voice.voicedDurationTimeout": "Pas assez de voix détectée. Parlez plus clairement et réessayez.",
+  "voice.durationTarget": "Parlez pendant au moins {min}s (max {max}s)",
 
   "review.title": "Revue",
   "review.progress": "Signaux collectés",

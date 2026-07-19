@@ -62,6 +62,8 @@
   "voice.done": "Recording complete ✓",
   "voice.interrupted": "Recording was interrupted. Keep the app in the foreground and try again.",
   "voice.interruptedFinal": "Recording was interrupted twice. Please try again while keeping the app in the foreground.",
+  "voice.voicedDurationTimeout": "Not enough voice detected. Speak more clearly and try again.",
+  "voice.durationTarget": "Speak for at least {min}s (max {max}s)",
 
   "review.title": "Review",
   "review.progress": "Signals collected",

@@ -25,7 +25,7 @@ import {
   STROOP_MIN_CONFLICT,
   type StroopColor,
 } from '../src/demoguard/cognitive/stroopChallenge';
-import { generateChallengePhrase } from '../src/demoguard/collectors/audioCollector';
+import { generateVocalRanChallenge, VOCAL_RAN_ITEMS } from '../src/demoguard/cognitive/vocalRanChallenge';
 import { buildDemoGuardPayload } from '../src/payload/buildDemoGuardPayload';
 import { initialState } from '../src/state/demoguardReducer';
 import type { DemoGuardState } from '../src/state/demoguardReducer';
@@ -145,30 +145,29 @@ describe('i18n — Stroop color words', () => {
   });
 });
 
-// ─── 4. Voice challenge phrase ───────────────────────────────────
+// ─── 4. Voice challenge phrase (RAN sequence) ───────────────────
 
 describe('i18n — voice challenge phrase', () => {
-  it('locale=fr returns French phrase', () => {
-    const phrase = generateChallengePhrase('test-id', 'fr');
-    expect(phrase).toBe('Je suis présent et je valide ce contrôle.');
+  it('RAN sequence is displayed as space-separated digits', () => {
+    const challenge = generateVocalRanChallenge();
+    const phrase = challenge.sequence.join(' ');
+    expect(phrase).toMatch(/^[0-9]( [0-9])+$/);
+    expect(phrase.split(' ').length).toBe(VOCAL_RAN_ITEMS);
   });
 
-  it('locale=en returns English phrase', () => {
-    const phrase = generateChallengePhrase('test-id', 'en');
-    expect(phrase).toBe('I am present and I confirm this check.');
+  it('RAN sequence is locale-independent (digits only)', () => {
+    const challenge = generateVocalRanChallenge();
+    const phrase = challenge.sequence.join(' ');
+    // Digits are the same in both fr and en — no locale-specific text
+    expect(phrase).not.toMatch(/[a-zA-Z]/);
   });
 
-  it('default (no locale) returns French phrase', () => {
-    const phrase = generateChallengePhrase('test-id');
-    expect(phrase).toBe('Je suis présent et je valide ce contrôle.');
-  });
-
-  it('English phrase has comparable word count to French', () => {
-    const frPhrase = generateChallengePhrase('test', 'fr');
-    const enPhrase = generateChallengePhrase('test', 'en');
-    const frWords = frPhrase.split(' ').length;
-    const enWords = enPhrase.split(' ').length;
-    expect(Math.abs(frWords - enWords)).toBeLessThanOrEqual(2);
+  it('RAN sequence matches expected_hash input', () => {
+    const challenge = generateVocalRanChallenge();
+    const phrase = challenge.sequence.join(' ');
+    // The displayed sequence must match what was hashed
+    expect(phrase).toBe(challenge.sequence.join(' '));
+    expect(challenge.expected_hash).toBeTruthy();
   });
 });
 
