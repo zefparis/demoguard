@@ -30,8 +30,17 @@ function readNumberEnv(name: string, fallback: number): number {
 }
 
 /**
- * Energy threshold for voiced frame detection on normalized audio.
- * Frames with normalized energy above this are considered voiced.
+ * Energy threshold for voiced frame detection — RELATIVE threshold.
+ *
+ * This is NOT an absolute energy level. Frames are classified as voiced when
+ * their energy divided by the running maxEnergy (live VAD) or the global
+ * maxEnergy (post-encode VAD, backend extractVoiceSegments) exceeds this value.
+ * In other words, a frame is voiced if its energy is at least 1.5% of the
+ * peak energy observed in the recording.
+ *
+ * This relative semantics ensures that quiet mobile speech (low mic gain,
+ * distant microphone) is still detected as voiced, because the normalization
+ * by maxEnergy makes the threshold independent of absolute recording level.
  *
  * P10-FINAL: lowered from 0.02 to 0.015 to detect quiet mobile speech
  * (distant mic, low gain).

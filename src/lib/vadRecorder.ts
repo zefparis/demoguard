@@ -47,7 +47,12 @@ export function createVadAccumulator(threshold: number = VAD_ENERGY_THRESHOLD) {
   return {
     processFrame(energy: number, frameDurationMs: number) {
       if (energy > maxEnergy) maxEnergy = energy;
-      const voiced = energy > threshold;
+      // Relative normalization: compare energy/maxEnergy to threshold,
+      // matching the semantics of post-encode VAD and backend extractVoiceSegments.
+      // VAD_ENERGY_THRESHOLD is a RELATIVE threshold (fraction of maxEnergy),
+      // not an absolute energy level.
+      const normalizedEnergy = energy / (maxEnergy || 1e-10);
+      const voiced = normalizedEnergy > threshold;
       if (voiced) voicedDurationMs += frameDurationMs;
       return { voiced, voicedDurationMs, maxEnergy };
     },

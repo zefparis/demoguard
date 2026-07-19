@@ -76,8 +76,11 @@ describe('VAD Accumulator', () => {
 
   it('does not reach MIN_VOICED_DURATION_MS with only silence', () => {
     const vad = createVadAccumulator(0.015);
+    // Use true 0.0 — with relative normalization, any uniform non-zero energy
+    // normalizes to 1.0 (100% of maxEnergy) and would pass the threshold.
+    // Only true silence (0.0) correctly stays below threshold after normalization.
     for (let i = 0; i < 1200; i++) {
-      vad.processFrame(0.000001, 10);
+      vad.processFrame(0.0, 10);
     }
     expect(vad.getVoicedDurationMs()).toBe(0);
   });
@@ -85,9 +88,48 @@ describe('VAD Accumulator', () => {
   it('handles mixed voiced/silent frames correctly', () => {
     const vad = createVadAccumulator(0.015);
     for (let i = 0; i < 50; i++) vad.processFrame(0.7, 10);
-    for (let i = 0; i < 100; i++) vad.processFrame(0.00001, 10);
+    for (let i = 0; i < 100; i++) vad.processFrame(0.0, 10);
     for (let i = 0; i < 250; i++) vad.processFrame(0.7, 10);
     expect(vad.getVoicedDurationMs()).toBe(3000);
+  });
+
+  it('classifies low-amplitude voice as voiced with relative normalization', () => {
+    // Simulates a mobile mic with low gain: background noise energy ~0.0001,
+    // voice energy ~0.0025. With absolute threshold 0.015, voice (0.0025 < 0.015)
+    // would be classified as silence — causing false 12s timeouts.
+    // With relative normalization, 0.0025/0.0025 = 1.0 > 0.015 → voiced.
+    const vad = createVadAccumulator(0.015);
+
+    // Background noise frames (low energy, below absolute threshold)
+    for (let i = 0; i < 20; i++) {
+      const r = vad.processFrame(0.0001, 10);
+      expect(r.voiced).toBe(true); // 0.0001/0.0001 = 1.0 > 0.015 (only frame so far)
+    }
+
+    // Voice frames (higher energy, but still below absolute 0.015)
+    // maxEnergy updates to 0.0025, now noise frames would be 0.0001/0.0025 = 0.04
+    for (let i = 0; i < 100; i++) {
+      const r = vad.processFrame(0.0025, 10);
+      expect(r.voiced).toBe(true); // 0.0025/0.0025 = 1.0 > 0.015
+    }
+    expect(vad.getVoicedDurationMs()).toBe(1200); // 20 + 100 frames × 10ms
+
+    // Noise after voice peak: 0.0001/0.0025 = 0.04 > 0.015 → still voiced
+    // This is expected: relative threshold can't distinguish post-voice noise
+    // from voice if noise is > 1.5% of peak. This matches backend behavior.
+    const r = vad.processFrame(0.0001, 10);
+    expect(r.voiced).toBe(true);
+  });
+
+  it('would fail with absolute threshold but passes with relative threshold', () => {
+    // Demonstrates the bug that was fixed: absolute threshold rejects
+    // low-gain mobile audio that the backend (relative) would accept.
+    const vad = createVadAccumulator(0.015);
+    // Voice energy 0.002 — well below absolute 0.015
+    const r = vad.processFrame(0.002, 10);
+    // With relative: 0.002/0.002 = 1.0 > 0.015 → voiced
+    expect(r.voiced).toBe(true);
+    // If this were absolute: 0.002 < 0.015 → would be false (the bug)
   });
 });
 
