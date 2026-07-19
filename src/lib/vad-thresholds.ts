@@ -5,6 +5,12 @@
  * requirements in demoguard-app. Values are read from environment variables
  * with P10-FINAL calibration defaults as fallback.
  *
+ * ─── REMOTE CONFIG ─────────────────────────────────────────────────
+ * VAD_ENERGY_THRESHOLD and MIN_VOICED_DURATION_MS are `let` so they can be
+ * updated at runtime from the hybrid-vector-api proxy endpoint via
+ * applyRemoteVadConfig(). The browser fetches /api/vad-config (server-side
+ * proxy) — never touches Supabase directly. Falls back to hardcoded defaults.
+ *
  * ─── CROSS-REPO SYNCHRONIZATION ───────────────────────────────────
  * These values MUST stay numerically identical across:
  *   - demoguard-app/src/lib/vad-thresholds.ts      (client-side VAD)
@@ -20,6 +26,8 @@
  * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
  * Patents Pending FR2514274 | FR2514546
  */
+
+import { fetchRemoteVadConfig, getCachedVadThresholds } from './remote-vad-config';
 
 function readNumberEnv(name: string, fallback: number): number {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
@@ -45,7 +53,7 @@ function readNumberEnv(name: string, fallback: number): number {
  * P10-FINAL: lowered from 0.02 to 0.015 to detect quiet mobile speech
  * (distant mic, low gain).
  */
-export const VAD_ENERGY_THRESHOLD = readNumberEnv('VAD_ENERGY_THRESHOLD', 0.015);
+export let VAD_ENERGY_THRESHOLD = readNumberEnv('VAD_ENERGY_THRESHOLD', 0.015);
 
 /**
  * Minimum cumulative voiced duration (ms) required for a valid recording.
@@ -53,7 +61,7 @@ export const VAD_ENERGY_THRESHOLD = readNumberEnv('VAD_ENERGY_THRESHOLD', 0.015)
  *
  * P10-FINAL: 3000ms — aligned with HCS backend MIN_VOICED_DURATION_MS.
  */
-export const MIN_VOICED_DURATION_MS = readNumberEnv('MIN_VOICED_DURATION_MS', 3000);
+export let MIN_VOICED_DURATION_MS = readNumberEnv('MIN_VOICED_DURATION_MS', 3000);
 
 /**
  * Maximum recording duration (ms) safety cap.
@@ -75,3 +83,25 @@ export const MAX_RECORDING_MS = readNumberEnv('MAX_RECORDING_MS', 12000);
  * full documentation.
  */
 export const VOICE_SEGMENT_MERGE_GAP_MS = readNumberEnv('VOICE_SEGMENT_MERGE_GAP_MS', 200);
+
+// ─── Remote config live override ───────────────────────────────────
+//
+// applyRemoteVadConfig() fetches from the hybrid-vector-api proxy endpoint
+// /api/vad-config and updates the `let` variables above. The browser never
+// touches Supabase directly — only via the server-side proxy.
+//
+// Called on module load (async, non-blocking) and every 60s via setInterval.
+
+export function applyRemoteVadConfig(): void {
+  const cfg = getCachedVadThresholds();
+  VAD_ENERGY_THRESHOLD = cfg.VAD_ENERGY_THRESHOLD;
+  MIN_VOICED_DURATION_MS = cfg.MIN_VOICED_DURATION_MS;
+}
+
+// Trigger initial async fetch (non-blocking — uses cached/default values immediately)
+fetchRemoteVadConfig().then(() => applyRemoteVadConfig()).catch(() => {});
+
+// Refresh every 60s
+setInterval(() => {
+  fetchRemoteVadConfig().then(() => applyRemoteVadConfig()).catch(() => {});
+}, 60_000);
