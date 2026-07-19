@@ -23,8 +23,9 @@ export function IdleScreen({ onStart }: Props) {
     if (qs && /^hcs_sess_[A-Za-z0-9_-]+$/.test(qs)) {
       setSessionId(qs);
     }
-    const scope = params.get('testScope');
-    if (scope === 'voice-only') {
+    // Use getAll() for robustness against duplicate query params — take first value
+    const scopes = params.getAll('testScope');
+    if (scopes.length > 0 && scopes[0] === 'voice-only') {
       setTestScope('voice-only');
     }
   }, []);
