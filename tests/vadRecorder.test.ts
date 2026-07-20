@@ -493,41 +493,75 @@ describe('VAD Accumulator — warm-up calibration', () => {
 
   it('resetVoicedDuration resets duration but preserves maxEnergy', () => {
     const vad = createVadAccumulator(0.015);
-    // Accumulate some voiced frames
     for (let i = 0; i < 50; i++) vad.processFrame(0.8, 10);
     expect(vad.getVoicedDurationMs()).toBe(500);
     expect(vad.getMaxEnergy()).toBe(0.8);
 
-    // Reset for Phase 2
     vad.resetVoicedDuration();
     expect(vad.getVoicedDurationMs()).toBe(0);
-    expect(vad.getMaxEnergy()).toBe(0.8); // Calibration reference preserved!
+    expect(vad.getMaxEnergy()).toBe(0.8);
   });
 
-  it('calibrated VAD classifies correctly from first frame (no cold-start)', () => {
-    // Simulate warm-up capturing voice at energy 0.3
+  it('resetMaxEnergy resets maxEnergy to cold-start default', () => {
+    const vad = createVadAccumulator(0.015);
+    for (let i = 0; i < 50; i++) vad.processFrame(0.8, 10);
+    expect(vad.getMaxEnergy()).toBe(0.8);
+
+    vad.resetMaxEnergy();
+    expect(vad.getMaxEnergy()).toBe(1e-10);
+  });
+
+  // ── Regression test: warm-up maxEnergy must NOT carry over to Phase 2 ──
+  // This tests the exact bug that was reported: warm-up phrase spoken louder
+  // than RAN digits → high maxEnergy → relative threshold too strict →
+  // voicedDurationMs drops from ~4000ms to ~1780ms.
+  it('warm-up maxEnergy carried over causes over-strict VAD (the regression)', () => {
+    // Simulate warm-up: user says "Bonjour" loudly, maxEnergy = 0.3
     const warmupVad = createVadAccumulator(0.015);
     for (let i = 0; i < 50; i++) warmupVad.processFrame(0.3, 10);
-    const referenceMaxEnergy = warmupVad.getMaxEnergy();
+    const warmupMaxEnergy = warmupVad.getMaxEnergy(); // 0.3
 
-    // Phase 2: create VAD with calibration reference
-    const phase2Vad = createVadAccumulator(0.015, referenceMaxEnergy);
+    // BUG: Phase 2 VAD starts with warm-up maxEnergy as initialMaxEnergy
+    const buggyPhase2Vad = createVadAccumulator(0.015, warmupMaxEnergy);
 
-    // Noise frame at 0.001: 0.001 / 0.3 = 0.003 < 0.015 → unvoiced (correct!)
-    const noiseResult = phase2Vad.processFrame(0.001, 10);
-    expect(noiseResult.voiced).toBe(false);
+    // User reads digits more quietly: energy 0.005
+    // 0.005 / 0.3 = 0.017 > 0.015 → voiced (barely passes)
+    // But quieter parts at 0.004: 0.004 / 0.3 = 0.013 < 0.015 → unvoiced (WRONG!)
+    const buggyQuiet = buggyPhase2Vad.processFrame(0.004, 10);
+    expect(buggyQuiet.voiced).toBe(false); // This is the regression!
 
-    // Voice frame at 0.15: 0.15 / 0.3 = 0.5 > 0.015 → voiced (correct!)
-    const voiceResult = phase2Vad.processFrame(0.15, 10);
-    expect(voiceResult.voiced).toBe(true);
+    // FIX: Phase 2 VAD starts with cold-start maxEnergy (resetMaxEnergy)
+    const fixedPhase2Vad = createVadAccumulator(0.015);
+    // First frame at 0.005: 0.005 / 1e-10 >> 0.015 → voiced, maxEnergy becomes 0.005
+    fixedPhase2Vad.processFrame(0.005, 10);
+    // Now quieter frame at 0.004: 0.004 / 0.005 = 0.8 > 0.015 → voiced (correct!)
+    const fixedQuiet = fixedPhase2Vad.processFrame(0.004, 10);
+    expect(fixedQuiet.voiced).toBe(true); // Fixed!
   });
 
-  it('uncalibrated VAD misclassifies noise as voiced during cold-start', () => {
-    // Without warm-up, maxEnergy starts at 1e-10
-    const coldVad = createVadAccumulator(0.015);
+  it('Phase 2 with resetMaxEnergy behaves identically to no-warm-up pipeline', () => {
+    // Simulate the full warm-up → reset → Phase 2 flow
+    const vad = createVadAccumulator(0.015);
 
-    // Noise frame at 0.001: 0.001 / 1e-10 = 1e7 >> 0.015 → voiced (WRONG!)
-    const noiseResult = coldVad.processFrame(0.001, 10);
-    expect(noiseResult.voiced).toBe(true); // This is the cold-start problem
+    // Warm-up: loud phrase
+    for (let i = 0; i < 50; i++) vad.processFrame(0.3, 10);
+    expect(vad.getMaxEnergy()).toBe(0.3);
+
+    // Phase 1 → Phase 2 transition
+    vad.resetVoicedDuration();
+    vad.resetMaxEnergy();
+
+    expect(vad.getVoicedDurationMs()).toBe(0);
+    expect(vad.getMaxEnergy()).toBe(1e-10);
+
+    // Phase 2: quieter digits — should classify same as cold-start VAD
+    const coldVad = createVadAccumulator(0.015);
+    for (let i = 0; i < 100; i++) {
+      const energy = 0.05 + Math.sin(i * 0.3) * 0.02; // varying voice energy
+      const r1 = vad.processFrame(energy, 10);
+      const r2 = coldVad.processFrame(energy, 10);
+      expect(r1.voiced).toBe(r2.voiced); // Identical classification
+    }
+    expect(vad.getVoicedDurationMs()).toBe(coldVad.getVoicedDurationMs());
   });
 });

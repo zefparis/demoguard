@@ -62,11 +62,8 @@ registerProcessor('vad-processor', VadProcessor);
  * energy normalization (energy / running maxEnergy > threshold).
  *
  * @param threshold Relative energy threshold (fraction of maxEnergy). Default: VAD_ENERGY_THRESHOLD (0.015).
- * @param initialMaxEnergy Optional pre-calibrated maxEnergy from a warm-up phase.
- *   When provided, the accumulator starts with this reference instead of 1e-10,
- *   giving accurate voiced/unvoiced classification from the very first frame.
- *   This is the key mechanism for session-calibrated VAD: the warm-up phase
- *   captures the user's voice level, and this value pre-seeds Phase 2's VAD.
+ * @param initialMaxEnergy Optional pre-calibrated maxEnergy. Currently unused
+ *   in the warm-up flow (see resetMaxEnergy below for the rationale).
  */
 export function createVadAccumulator(threshold: number = VAD_ENERGY_THRESHOLD, initialMaxEnergy?: number) {
   let voicedDurationMs = 0;
@@ -88,11 +85,29 @@ export function createVadAccumulator(threshold: number = VAD_ENERGY_THRESHOLD, i
     getMaxEnergy: () => maxEnergy,
     /**
      * Resets voiced duration counter to 0 while preserving maxEnergy.
-     * Used at the Phase 1 → Phase 2 transition: the warm-up's maxEnergy
-     * carries over as the calibration reference, but the warm-up's voiced
-     * duration must NOT count toward Phase 2's MIN_VOICED_DURATION_MS target.
      */
     resetVoicedDuration: () => { voicedDurationMs = 0; },
+    /**
+     * Resets maxEnergy to the cold-start default (1e-10).
+     *
+     * This is called at the Phase 1 → Phase 2 transition to ensure the
+     * warm-up's maxEnergy does NOT carry over as a ceiling for Phase 2's
+     * VAD classification.
+     *
+     * Rationale: The warm-up phrase ("Bonjour, je suis prêt") is typically
+     * spoken with different energy/proximity than the RAN challenge digits.
+     * If the warm-up maxEnergy is higher than the Phase 2 energy, it makes
+     * the relative threshold (energy / maxEnergy > 0.015) artificially strict,
+     * causing legitimate voiced frames to be classified as unvoiced. This
+     * produces lower voicedDurationMs and fewer segments than the pre-warm-up
+     * pipeline — a regression.
+     *
+     * By resetting maxEnergy to cold-start, Phase 2's VAD behaves identically
+     * to the original pipeline without warm-up. The warm-up phase still
+     * provides value through microphone initialization and AudioContext.resume(),
+     * but VAD calibration is deferred to Phase 2's own frame processing.
+     */
+    resetMaxEnergy: () => { maxEnergy = 1e-10; },
   };
 }
 
@@ -335,27 +350,29 @@ async function recordAudioWithVadSingleAttempt(options: {
   }
 
   // ─── Phase 1: Warm-up (optional) ────────────────────────────────
-  // Initializes mic + AudioContext + VAD BEFORE starting MediaRecorder.
-  // Captures reference maxEnergy from the user's warm-up voice for
-  // session-calibrated VAD threshold in Phase 2.
+  // Initializes mic + AudioContext BEFORE starting MediaRecorder.
+  //
+  // The warm-up phase provides two benefits:
+  //   1. Microphone initialization (getUserMedia, AudioContext.resume())
+  //   2. Confirmation that the microphone is capturing voice (WARMUP_MIN_VOICE_MS)
   //
   // Warm-up audio is NOT recorded (MediaRecorder has not started yet), so it
-  // is never included in the blob sent to HCS backend. This ensures strict
-  // separation between warm-up (technical calibration only) and the actual
-  // RAN challenge capture.
+  // is never included in the blob sent to HCS backend.
   //
-  // Calibration integration with VAD_ENERGY_THRESHOLD:
-  //   The existing relative threshold (energy / maxEnergy > 0.015) is NOT
-  //   replaced. Instead, the warm-up provides a better STARTING POINT for
-  //   maxEnergy. Without warm-up, maxEnergy starts at 1e-10 and every early
-  //   frame is classified as voiced (since any energy / 1e-10 >> threshold).
-  //   With warm-up, maxEnergy starts at the user's actual voice level, so
-  //   Phase 2's VAD classification is accurate from the first frame.
+  // VAD calibration decision (regression fix):
+  //   The warm-up's maxEnergy is NOT carried over to Phase 2. Empirical testing
+  //   showed that the warm-up phrase (spoken with different energy/proximity
+  //   than the RAN digits) produced a maxEnergy that was often HIGHER than the
+  //   actual Phase 2 energy. Since VAD_ENERGY_THRESHOLD is relative
+  //   (energy / maxEnergy > 0.015), a higher maxEnergy makes the threshold
+  //   artificially strict, causing voiced frames to be misclassified as
+  //   unvoiced. This produced voicedDurationMs ~1780ms vs ~4000-5650ms without
+  //   warm-up — a severe regression.
   //
-  //   This is a COMPLEMENT, not a replacement: VAD_ENERGY_THRESHOLD stays the
-  //   same (0.015), and maxEnergy still updates if louder frames arrive in
-  //   Phase 2. The warm-up simply eliminates the cold-start period where VAD
-  //   classification is unreliable.
+  //   Fix: Both voicedDuration AND maxEnergy are reset at the Phase 1 → Phase 2
+  //   transition. Phase 2's VAD starts with cold-start maxEnergy (1e-10),
+  //   identical to the original pipeline without warm-up. The warm-up still
+  //   provides mic initialization and AudioContext.resume() benefits.
   let warmupMaxEnergy: number | undefined;
   let warmupDurationMs: number | undefined;
   if (options.warmup?.enabled) {
@@ -398,8 +415,14 @@ async function recordAudioWithVadSingleAttempt(options: {
     warmupMaxEnergy = vad.getMaxEnergy();
     warmupDurationMs = Math.round(performance.now() - warmupStart);
 
-    // Reset voiced duration for Phase 2 — maxEnergy carries over as calibration reference.
+    // Reset BOTH voiced duration AND maxEnergy for Phase 2.
+    // maxEnergy reset is critical: the warm-up phrase energy must NOT carry
+    // over as a ceiling for Phase 2's relative VAD threshold. Without this
+    // reset, if the warm-up energy > Phase 2 energy, the VAD becomes
+    // artificially strict and produces lower voicedDurationMs than the
+    // original pipeline without warm-up (a regression).
     vad.resetVoicedDuration();
+    vad.resetMaxEnergy();
 
     // Reset recordStart so warm-up time doesn't eat into maxRecordingMs budget.
     recordStart = performance.now();
@@ -636,20 +659,19 @@ export async function recordAudioWithVad(options: {
  *
  * Phase 2 (RAN challenge capture):
  *   - Starts MediaRecorder
- *   - VAD runs with maxEnergy pre-calibrated from Phase 1
+ *   - VAD runs with cold-start maxEnergy (NOT calibrated from Phase 1)
  *   - Identical VAD logic, post-encode validation, and retry as recordAudioWithVad
  *   - The 5 liveness dimensions (breathingPresence, HNR, jitter, harmonicBalance,
  *     voicingRatio) are computed by HCS backend from Phase 2 audio only
  *
- * Session calibration integration:
- *   The warm-up's maxEnergy becomes the VAD accumulator's initial maxEnergy in
- *   Phase 2. This means the relative threshold (energy / maxEnergy > 0.015) is
- *   accurate from the first frame of Phase 2, instead of suffering from the
- *   cold-start period where maxEnergy=1e-10 makes every frame appear voiced.
- *
- *   If post-encode validation triggers a retry, the retry reuses the warm-up's
- *   referenceMaxEnergy as its initial maxEnergy — the calibration persists
- *   across retry attempts within the same session.
+ * VAD calibration decision (regression fix):
+ *   The warm-up's maxEnergy is NOT carried over to Phase 2. Testing showed
+ *   that the warm-up phrase energy was often higher than the RAN digit energy,
+ *   making the relative VAD threshold (energy / maxEnergy > 0.015) artificially
+ *   strict. This caused voicedDurationMs to drop from ~4000-5650ms (pre-warm-up)
+ *   to ~1780ms — a severe regression. Phase 2 now starts with cold-start
+ *   maxEnergy, identical to the original pipeline. The warm-up still provides
+ *   mic initialization and AudioContext.resume() benefits.
  *
  * @param options Recording options + onWarmupComplete callback for UI transition
  */
@@ -697,7 +719,9 @@ export async function warmupAndRecordAudioWithVad(options: {
     return firstAttempt;
   }
 
-  // Post-encode validation failed — retry with warm-up reference maxEnergy for calibrated VAD
+  // Post-encode validation failed — retry with cold-start VAD (no warm-up calibration).
+  // The warm-up's maxEnergy is NOT passed to the retry, to avoid the same
+  // regression where a high warm-up maxEnergy makes VAD too strict.
   console.log(JSON.stringify({
     event: '[VAD-DEBUG]',
     stage: 'post_encode_retry_triggered',
@@ -709,7 +733,6 @@ export async function warmupAndRecordAudioWithVad(options: {
 
   const retryAttempt = await recordAudioWithVadSingleAttempt({
     ...options,
-    referenceMaxEnergy: firstAttempt.debug.warmupMaxEnergy,
   });
   retryAttempt.postEncodeRetry = true;
 
