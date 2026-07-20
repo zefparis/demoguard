@@ -64,6 +64,11 @@
   "voice.interruptedFinal": "L'enregistrement a été interrompu à deux reprises. Veuillez réessayer en gardant l'application au premier plan.",
   "voice.voicedDurationTimeout": "Pas assez de voix détectée. Parlez plus clairement et réessayez.",
   "voice.durationTarget": "Parlez pendant au moins {min}s (max {max}s)",
+  "voice.warmupPrompt": "Dites cette phrase pour démarrer le micro :",
+  "voice.warmupPhrase": "Bonjour, je suis prêt",
+  "voice.warmupThen": "Ensuite, lisez ces chiffres :",
+  "voice.warmupInProgress": "Amorçage du micro…",
+  "voice.warmupHint": "Parlez naturellement — l'enregistrement démarre automatiquement.",
 
   "review.title": "Revue",
   "review.progress": "Signaux collectés",

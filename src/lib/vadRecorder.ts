@@ -21,6 +21,23 @@ import { VAD_ENERGY_THRESHOLD as _VAD_THRESHOLD, MIN_VOICED_DURATION_MS, MAX_REC
 export { MIN_VOICED_DURATION_MS, MAX_RECORDING_MS };
 export const VAD_ENERGY_THRESHOLD = _VAD_THRESHOLD;
 
+/**
+ * Warm-up phase constants (Phase 1 — mic initialization + calibration).
+ *
+ * WARMUP_MIN_VOICE_MS: Minimum cumulative voiced duration (ms) during warm-up
+ *   to confirm the microphone is capturing voice. Uses the same relative VAD
+ *   threshold as Phase 2 — this is NOT a liveness decision, just a "mic is alive"
+ *   confirmation. 500ms is enough to distinguish voice from brief noise spikes.
+ *
+ * WARMUP_MAX_MS: Safety cap for the warm-up phase. If the user doesn't speak
+ *   within this window, we proceed to Phase 2 anyway — the VAD will use whatever
+ *   maxEnergy was accumulated (noise floor), and the relative threshold will
+ *   self-correct when the user speaks louder in Phase 2. This ensures the
+ *   warm-up never blocks the user indefinitely.
+ */
+export const WARMUP_MIN_VOICE_MS = 500;
+export const WARMUP_MAX_MS = 6000;
+
 const VAD_PROCESSOR_CODE = `
 class VadProcessor extends AudioWorkletProcessor {
   process(inputs) {
@@ -40,9 +57,20 @@ class VadProcessor extends AudioWorkletProcessor {
 registerProcessor('vad-processor', VadProcessor);
 `;
 
-export function createVadAccumulator(threshold: number = VAD_ENERGY_THRESHOLD) {
+/**
+ * VAD accumulator — classifies audio frames as voiced/unvoiced using relative
+ * energy normalization (energy / running maxEnergy > threshold).
+ *
+ * @param threshold Relative energy threshold (fraction of maxEnergy). Default: VAD_ENERGY_THRESHOLD (0.015).
+ * @param initialMaxEnergy Optional pre-calibrated maxEnergy from a warm-up phase.
+ *   When provided, the accumulator starts with this reference instead of 1e-10,
+ *   giving accurate voiced/unvoiced classification from the very first frame.
+ *   This is the key mechanism for session-calibrated VAD: the warm-up phase
+ *   captures the user's voice level, and this value pre-seeds Phase 2's VAD.
+ */
+export function createVadAccumulator(threshold: number = VAD_ENERGY_THRESHOLD, initialMaxEnergy?: number) {
   let voicedDurationMs = 0;
-  let maxEnergy = 1e-10;
+  let maxEnergy = initialMaxEnergy && initialMaxEnergy > 0 ? initialMaxEnergy : 1e-10;
 
   return {
     processFrame(energy: number, frameDurationMs: number) {
@@ -58,6 +86,13 @@ export function createVadAccumulator(threshold: number = VAD_ENERGY_THRESHOLD) {
     },
     getVoicedDurationMs: () => voicedDurationMs,
     getMaxEnergy: () => maxEnergy,
+    /**
+     * Resets voiced duration counter to 0 while preserving maxEnergy.
+     * Used at the Phase 1 → Phase 2 transition: the warm-up's maxEnergy
+     * carries over as the calibration reference, but the warm-up's voiced
+     * duration must NOT count toward Phase 2's MIN_VOICED_DURATION_MS target.
+     */
+    resetVoicedDuration: () => { voicedDurationMs = 0; },
   };
 }
 
@@ -81,6 +116,8 @@ export interface VadRecordingResult {
     trackReadyState: string;
     vadMode: VadMode;
     maxEnergy: number;
+    warmupMaxEnergy?: number;
+    warmupDurationMs?: number;
   };
 }
 
@@ -159,6 +196,13 @@ async function recordAudioWithVadSingleAttempt(options: {
   minVoicedDurationMs?: number;
   maxRecordingMs?: number;
   energyThreshold?: number;
+  warmup?: {
+    enabled: boolean;
+    minVoiceDetectedMs?: number;
+    maxWarmupMs?: number;
+  };
+  referenceMaxEnergy?: number;
+  onWarmupComplete?: (referenceMaxEnergy: number) => void;
 } = {}): Promise<VadRecordingResult> {
   const minVoicedMs = options.minVoicedDurationMs ?? MIN_VOICED_DURATION_MS;
   const maxRecordingMs = options.maxRecordingMs ?? MAX_RECORDING_MS;
@@ -170,7 +214,7 @@ async function recordAudioWithVadSingleAttempt(options: {
   const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
   const chunks: BlobPart[] = [];
 
-  const recordStart = performance.now();
+  let recordStart = performance.now();
   let audioInterrupted = false;
   let interruptReason = '';
   const track = stream.getAudioTracks()[0];
@@ -219,7 +263,7 @@ async function recordAudioWithVadSingleAttempt(options: {
   }
 
   const sourceNode = audioCtx.createMediaStreamSource(stream);
-  const vad = createVadAccumulator(energyThreshold);
+  const vad = createVadAccumulator(energyThreshold, options.referenceMaxEnergy);
   let vadMode: VadMode = 'none';
   let vadInterval: ReturnType<typeof setInterval> | null = null;
   let analyser: AnalyserNode | null = null;
@@ -290,9 +334,86 @@ async function recordAudioWithVadSingleAttempt(options: {
     }
   }
 
+  // ─── Phase 1: Warm-up (optional) ────────────────────────────────
+  // Initializes mic + AudioContext + VAD BEFORE starting MediaRecorder.
+  // Captures reference maxEnergy from the user's warm-up voice for
+  // session-calibrated VAD threshold in Phase 2.
+  //
+  // Warm-up audio is NOT recorded (MediaRecorder has not started yet), so it
+  // is never included in the blob sent to HCS backend. This ensures strict
+  // separation between warm-up (technical calibration only) and the actual
+  // RAN challenge capture.
+  //
+  // Calibration integration with VAD_ENERGY_THRESHOLD:
+  //   The existing relative threshold (energy / maxEnergy > 0.015) is NOT
+  //   replaced. Instead, the warm-up provides a better STARTING POINT for
+  //   maxEnergy. Without warm-up, maxEnergy starts at 1e-10 and every early
+  //   frame is classified as voiced (since any energy / 1e-10 >> threshold).
+  //   With warm-up, maxEnergy starts at the user's actual voice level, so
+  //   Phase 2's VAD classification is accurate from the first frame.
+  //
+  //   This is a COMPLEMENT, not a replacement: VAD_ENERGY_THRESHOLD stays the
+  //   same (0.015), and maxEnergy still updates if louder frames arrive in
+  //   Phase 2. The warm-up simply eliminates the cold-start period where VAD
+  //   classification is unreliable.
+  let warmupMaxEnergy: number | undefined;
+  let warmupDurationMs: number | undefined;
+  if (options.warmup?.enabled) {
+    const warmupMinVoiceMs = options.warmup.minVoiceDetectedMs ?? WARMUP_MIN_VOICE_MS;
+    const warmupMaxMs = options.warmup.maxWarmupMs ?? WARMUP_MAX_MS;
+    const warmupStart = performance.now();
+
+    console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'warmup_start', vadMode, audioCtxState: audioCtx.state }));
+
+    await new Promise<void>((resolve) => {
+      if (vadMode === 'none') {
+        // No VAD available — skip warm-up, proceed to recording
+        console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'warmup_skipped', reason: 'vadMode_none' }));
+        resolve();
+        return;
+      }
+      const checkInterval = setInterval(() => {
+        if (audioInterrupted) {
+          clearInterval(checkInterval);
+          resolve();
+          return;
+        }
+        if (vad.getVoicedDurationMs() >= warmupMinVoiceMs) {
+          clearInterval(checkInterval);
+          resolve();
+          return;
+        }
+        if (performance.now() - warmupStart >= warmupMaxMs) {
+          // Warm-up timeout — proceed anyway. maxEnergy will be whatever was
+          // accumulated (noise floor or partial voice). The relative threshold
+          // self-corrects when the user speaks louder in Phase 2.
+          console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'warmup_timeout', voicedMs: Math.round(vad.getVoicedDurationMs()), maxEnergy: vad.getMaxEnergy() }));
+          clearInterval(checkInterval);
+          resolve();
+          return;
+        }
+      }, 50);
+    });
+
+    warmupMaxEnergy = vad.getMaxEnergy();
+    warmupDurationMs = Math.round(performance.now() - warmupStart);
+
+    // Reset voiced duration for Phase 2 — maxEnergy carries over as calibration reference.
+    vad.resetVoicedDuration();
+
+    // Reset recordStart so warm-up time doesn't eat into maxRecordingMs budget.
+    recordStart = performance.now();
+
+    console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'warmup_complete', warmupDurationMs, warmupMaxEnergy, audioCtxState: audioCtx.state }));
+
+    if (options.onWarmupComplete) {
+      options.onWarmupComplete(warmupMaxEnergy);
+    }
+  }
+
   recorder.start(250);
   // TEMP-DEBUG: log recorder start and audioCtx state at recording start
-  console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'recorder_started', recorderState: recorder.state, audioCtxState: audioCtx.state, vadMode }));
+  console.log(JSON.stringify({ event: '[VAD-DEBUG]', stage: 'recorder_started', recorderState: recorder.state, audioCtxState: audioCtx.state, vadMode, warmupMaxEnergy: warmupMaxEnergy ?? null }));
 
   let timeout = false;
   // TEMP-DEBUG: periodic voiced-duration sampler — logs every 1000ms to see if accumulation progresses
@@ -384,6 +505,8 @@ async function recordAudioWithVadSingleAttempt(options: {
     // TEMP-DEBUG: additional diagnostic fields for intermittent timeout investigation
     workletFirstFrameReceived, // false = worklet loaded but never got audio (suspended ctx?)
     audioCtxStateAtStop: audioCtx.state, // 'closed' expected after close()
+    warmupMaxEnergy: warmupMaxEnergy ?? null,
+    warmupDurationMs: warmupDurationMs ?? null,
   }));
 
   return {
@@ -404,10 +527,16 @@ async function recordAudioWithVadSingleAttempt(options: {
       trackReadyState,
       vadMode,
       maxEnergy: vad.getMaxEnergy(),
+      warmupMaxEnergy,
+      warmupDurationMs,
     },
   };
 }
 
+/**
+ * Standard recording (no warm-up). Identical behavior as before — zero regression.
+ * Existing callers use this function unchanged.
+ */
 export async function recordAudioWithVad(options: {
   minVoicedDurationMs?: number;
   maxRecordingMs?: number;
@@ -491,6 +620,123 @@ export async function recordAudioWithVad(options: {
 
   // Fail-closed: both attempts had insufficient post-encode voiced duration
   // Return the retry attempt but mark as timeout (voiced_duration_timeout)
+  retryAttempt.timeout = true;
+  return retryAttempt;
+}
+
+/**
+ * Warm-up + recording flow (2-phase vocal capture).
+ *
+ * Phase 1 (Warm-up):
+ *   - Opens microphone (getUserMedia) and AudioContext
+ *   - Resumes AudioContext if suspended (same rigor as existing resume() fix)
+ *   - Runs VAD without MediaRecorder to capture reference maxEnergy
+ *   - Waits until voice is detected (WARMUP_MIN_VOICE_MS of voiced audio)
+ *   - Warm-up audio is NEVER recorded — MediaRecorder starts only in Phase 2
+ *
+ * Phase 2 (RAN challenge capture):
+ *   - Starts MediaRecorder
+ *   - VAD runs with maxEnergy pre-calibrated from Phase 1
+ *   - Identical VAD logic, post-encode validation, and retry as recordAudioWithVad
+ *   - The 5 liveness dimensions (breathingPresence, HNR, jitter, harmonicBalance,
+ *     voicingRatio) are computed by HCS backend from Phase 2 audio only
+ *
+ * Session calibration integration:
+ *   The warm-up's maxEnergy becomes the VAD accumulator's initial maxEnergy in
+ *   Phase 2. This means the relative threshold (energy / maxEnergy > 0.015) is
+ *   accurate from the first frame of Phase 2, instead of suffering from the
+ *   cold-start period where maxEnergy=1e-10 makes every frame appear voiced.
+ *
+ *   If post-encode validation triggers a retry, the retry reuses the warm-up's
+ *   referenceMaxEnergy as its initial maxEnergy — the calibration persists
+ *   across retry attempts within the same session.
+ *
+ * @param options Recording options + onWarmupComplete callback for UI transition
+ */
+export async function warmupAndRecordAudioWithVad(options: {
+  minVoicedDurationMs?: number;
+  maxRecordingMs?: number;
+  energyThreshold?: number;
+  onWarmupComplete?: (referenceMaxEnergy: number) => void;
+} = {}): Promise<VadRecordingResult> {
+  const minVoicedMs = options.minVoicedDurationMs ?? MIN_VOICED_DURATION_MS;
+  const energyThreshold = options.energyThreshold ?? VAD_ENERGY_THRESHOLD;
+
+  const firstAttempt = await recordAudioWithVadSingleAttempt({
+    ...options,
+    warmup: { enabled: true },
+    onWarmupComplete: options.onWarmupComplete,
+  });
+
+  // Skip post-encode validation if interrupted, timeout, or no blob
+  if (firstAttempt.interrupted || firstAttempt.timeout || !firstAttempt.blob || firstAttempt.blob.size === 0) {
+    return firstAttempt;
+  }
+
+  // Post-encode VAD validation: decode the compressed blob and re-measure voiced duration
+  const postEncodeVoicedMs = await measureVoicedDurationFromBlob(firstAttempt.blob, energyThreshold);
+
+  console.log(JSON.stringify({
+    event: '[VAD-DEBUG]',
+    stage: 'post_encode_comparison',
+    liveVoicedDurationMs: firstAttempt.voicedDurationMs,
+    postEncodeVoicedDurationMs: postEncodeVoicedMs !== null ? Math.round(postEncodeVoicedMs) : null,
+    targetVoicedMs: minVoicedMs,
+    blobSize: firstAttempt.blob.size,
+    mimeType: firstAttempt.mimeType,
+    warmupMaxEnergy: firstAttempt.debug.warmupMaxEnergy ?? null,
+  }));
+
+  firstAttempt.postEncodeVoicedDurationMs = postEncodeVoicedMs !== null ? Math.round(postEncodeVoicedMs) : null;
+
+  if (postEncodeVoicedMs !== null && postEncodeVoicedMs >= minVoicedMs) {
+    return firstAttempt;
+  }
+
+  if (postEncodeVoicedMs === null) {
+    return firstAttempt;
+  }
+
+  // Post-encode validation failed — retry with warm-up reference maxEnergy for calibrated VAD
+  console.log(JSON.stringify({
+    event: '[VAD-DEBUG]',
+    stage: 'post_encode_retry_triggered',
+    liveVoicedDurationMs: firstAttempt.voicedDurationMs,
+    postEncodeVoicedDurationMs: postEncodeVoicedMs !== null ? Math.round(postEncodeVoicedMs) : null,
+    targetVoicedMs: minVoicedMs,
+    warmupMaxEnergy: firstAttempt.debug.warmupMaxEnergy ?? null,
+  }));
+
+  const retryAttempt = await recordAudioWithVadSingleAttempt({
+    ...options,
+    referenceMaxEnergy: firstAttempt.debug.warmupMaxEnergy,
+  });
+  retryAttempt.postEncodeRetry = true;
+
+  if (retryAttempt.interrupted || retryAttempt.timeout || !retryAttempt.blob || retryAttempt.blob.size === 0) {
+    retryAttempt.postEncodeVoicedDurationMs = null;
+    return retryAttempt;
+  }
+
+  const retryPostEncodeVoicedMs = await measureVoicedDurationFromBlob(retryAttempt.blob, energyThreshold);
+
+  console.log(JSON.stringify({
+    event: '[VAD-DEBUG]',
+    stage: 'post_encode_retry_comparison',
+    liveVoicedDurationMs: retryAttempt.voicedDurationMs,
+    postEncodeVoicedDurationMs: retryPostEncodeVoicedMs !== null ? Math.round(retryPostEncodeVoicedMs) : null,
+    targetVoicedMs: minVoicedMs,
+    blobSize: retryAttempt.blob.size,
+    mimeType: retryAttempt.mimeType,
+  }));
+
+  retryAttempt.postEncodeVoicedDurationMs = retryPostEncodeVoicedMs !== null ? Math.round(retryPostEncodeVoicedMs) : null;
+
+  if (retryPostEncodeVoicedMs !== null && retryPostEncodeVoicedMs >= minVoicedMs) {
+    return retryAttempt;
+  }
+
+  // Fail-closed: both attempts had insufficient post-encode voiced duration
   retryAttempt.timeout = true;
   return retryAttempt;
 }

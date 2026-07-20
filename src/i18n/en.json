@@ -64,6 +64,11 @@
   "voice.interruptedFinal": "Recording was interrupted twice. Please try again while keeping the app in the foreground.",
   "voice.voicedDurationTimeout": "Not enough voice detected. Speak more clearly and try again.",
   "voice.durationTarget": "Speak for at least {min}s (max {max}s)",
+  "voice.warmupPrompt": "Say this phrase to start the microphone:",
+  "voice.warmupPhrase": "Hello, I'm ready",
+  "voice.warmupThen": "Then, read these digits:",
+  "voice.warmupInProgress": "Warming up microphone…",
+  "voice.warmupHint": "Speak naturally — recording starts automatically.",
 
   "review.title": "Review",
   "review.progress": "Signals collected",

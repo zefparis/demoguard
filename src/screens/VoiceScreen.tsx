@@ -23,7 +23,7 @@ interface Props {
   onError: (reason: string) => void;
 }
 
-type RecordingState = 'idle' | 'recording' | 'processing' | 'done';
+type RecordingState = 'idle' | 'warming_up' | 'recording' | 'processing' | 'done';
 
 export function VoiceScreen({ session, onComplete, onError }: Props) {
   const { t } = useI18n();
@@ -39,11 +39,19 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
   }, []);
 
   const handleRecord = async () => {
-    setState('recording');
+    setState('warming_up');
     setInterruptMsg(null);
-    startTimeRef.current = performance.now();
     try {
-      const result = await recordVoiceChallenge(challenge.challenge_id);
+      const result = await recordVoiceChallenge(
+        challenge.challenge_id,
+        (_referenceMaxEnergy) => {
+          // Phase 1 → Phase 2 transition: warm-up complete, real recording starts.
+          // Set startTimeRef here (not before warm-up) so RAN duration metric
+          // excludes warm-up time.
+          startTimeRef.current = performance.now();
+          setState('recording');
+        },
+      );
 
       // ── VAD timeout: not enough voiced audio within MAX_RECORDING_MS
       if (result.error?.kind === 'voiced-duration-timeout') {
@@ -108,21 +116,33 @@ export function VoiceScreen({ session, onComplete, onError }: Props) {
       <PhaseHeader title={t('voice.title')} progress="7/7" progressPct={95} />
       <ErrorBoundary onRetry={() => setState('idle')}>
         <div className="voice-visual">
-          <div className={`voice-pulse ${state === 'recording' ? 'recording' : ''}`} />
+          <div className={`voice-pulse ${state === 'recording' ? 'recording' : ''} ${state === 'warming_up' ? 'warming-up' : ''}`} />
           {state === 'idle' && (
             <>
               {interruptMsg && (
                 <p style={{ color: '#e67e22', fontWeight: 600, marginBottom: 12 }}>{interruptMsg}</p>
               )}
-              <p>{t('voice.readAloud')}</p>
-              <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 8 }}>
-                {phrase}
-              </p>
+              <p>{t('voice.warmupPrompt')}</p>
+              <p style={{ fontSize: 24, fontWeight: 700 }}>{t('voice.warmupPhrase')}</p>
+              <p className="muted" style={{ marginTop: 8 }}>{t('voice.warmupThen')}</p>
+              <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: 4, color: '#888' }}>{phrase}</p>
               <p className="muted">{t('voice.durationTarget', { min: MIN_VOICED_DURATION_MS / 1000, max: MAX_RECORDING_MS / 1000 })}</p>
               <button className="btn" onClick={handleRecord}>{t('voice.record')}</button>
             </>
           )}
-          {state === 'recording' && <p style={{ fontSize: 20, fontWeight: 600 }}>{t('voice.recording')}</p>}
+          {state === 'warming_up' && (
+            <>
+              <p style={{ fontSize: 20, fontWeight: 600 }}>{t('voice.warmupInProgress')}</p>
+              <p style={{ fontSize: 24, fontWeight: 700 }}>{t('voice.warmupPhrase')}</p>
+              <p className="muted">{t('voice.warmupHint')}</p>
+            </>
+          )}
+          {state === 'recording' && (
+            <>
+              <p style={{ fontSize: 20, fontWeight: 600 }}>{t('voice.recording')}</p>
+              <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 8 }}>{phrase}</p>
+            </>
+          )}
           {state === 'processing' && <p className="muted">{t('voice.processing')}</p>}
           {state === 'done' && <p>{t('voice.done')}</p>}
         </div>

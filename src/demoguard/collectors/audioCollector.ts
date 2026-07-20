@@ -9,7 +9,7 @@
  */
 
 import { blobToBase64, computeBlobRmsAndDuration } from '../../lib/audio';
-import { recordAudioWithVad, MIN_VOICED_DURATION_MS, MAX_RECORDING_MS } from '../../lib/vadRecorder';
+import { recordAudioWithVad, warmupAndRecordAudioWithVad, MIN_VOICED_DURATION_MS, MAX_RECORDING_MS } from '../../lib/vadRecorder';
 import type { DemoGuardVoiceSignal, DemoGuardVoiceDiagnostic } from '../types';
 
 function computeAudioSizeBucket(byteLength: number): DemoGuardVoiceDiagnostic['audioSizeBucket'] {
@@ -48,9 +48,16 @@ export async function requestMicrophone(): Promise<MediaStream> {
 
 export async function recordVoiceChallenge(
   challengeId: string = generateChallengeId(),
+  onWarmupComplete?: (referenceMaxEnergy: number) => void,
 ): Promise<AudioCollectorResult> {
   try {
-    const recording = await recordAudioWithVad();
+    // When onWarmupComplete is provided, use the 2-phase warm-up + recording flow.
+    // Phase 1: mic initialization + reference maxEnergy calibration (NOT recorded).
+    // Phase 2: RAN challenge capture with session-calibrated VAD threshold.
+    // When absent, uses the standard single-phase recording (zero regression for existing callers).
+    const recording = onWarmupComplete
+      ? await warmupAndRecordAudioWithVad({ onWarmupComplete })
+      : await recordAudioWithVad();
 
     // ── T5: Check if recording was interrupted (mobile track ended, visibility change, etc.)
     if (recording.interrupted) {

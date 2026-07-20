@@ -16,6 +16,8 @@ import {
   VAD_ENERGY_THRESHOLD,
   MIN_VOICED_DURATION_MS,
   MAX_RECORDING_MS,
+  WARMUP_MIN_VOICE_MS,
+  WARMUP_MAX_MS,
 } from '../src/lib/vadRecorder';
 
 // ─── VAD Accumulator (pure logic, no browser APIs) ─────────────────
@@ -443,5 +445,89 @@ describe('VAD recording flow simulation', () => {
 
     vi.useRealTimers();
     restoreMediaRecorder(originalMR);
+  });
+});
+
+// ─── Warm-up phase tests ───────────────────────────────────────────
+
+describe('Warm-up constants', () => {
+  it('WARMUP_MIN_VOICE_MS is 500 (mic-is-alive confirmation)', () => {
+    expect(WARMUP_MIN_VOICE_MS).toBe(500);
+  });
+
+  it('WARMUP_MAX_MS is 6000 (safety cap, never blocks indefinitely)', () => {
+    expect(WARMUP_MAX_MS).toBe(6000);
+  });
+});
+
+describe('VAD Accumulator — warm-up calibration', () => {
+  it('initializes maxEnergy from initialMaxEnergy when provided', () => {
+    const vad = createVadAccumulator(0.015, 0.05);
+    // First frame: energy 0.003 / maxEnergy 0.05 = 0.06 > 0.015 → voiced
+    const r = vad.processFrame(0.003, 10);
+    expect(r.voiced).toBe(true);
+    expect(r.maxEnergy).toBe(0.05); // maxEnergy unchanged (0.003 < 0.05)
+  });
+
+  it('without initialMaxEnergy, starts from near-zero (cold start)', () => {
+    const vad = createVadAccumulator(0.015);
+    // First frame: any non-zero energy / 1e-10 >> threshold → voiced (cold start behavior)
+    const r = vad.processFrame(0.0001, 10);
+    expect(r.voiced).toBe(true);
+    expect(r.maxEnergy).toBe(0.0001);
+  });
+
+  it('initialMaxEnergy=0 falls back to default 1e-10 (no division by zero)', () => {
+    const vad = createVadAccumulator(0.015, 0);
+    const r = vad.processFrame(0.001, 10);
+    expect(r.voiced).toBe(true);
+    expect(r.maxEnergy).toBe(0.001);
+  });
+
+  it('initialMaxEnergy negative falls back to default 1e-10', () => {
+    const vad = createVadAccumulator(0.015, -1);
+    const r = vad.processFrame(0.001, 10);
+    expect(r.voiced).toBe(true);
+    expect(r.maxEnergy).toBe(0.001);
+  });
+
+  it('resetVoicedDuration resets duration but preserves maxEnergy', () => {
+    const vad = createVadAccumulator(0.015);
+    // Accumulate some voiced frames
+    for (let i = 0; i < 50; i++) vad.processFrame(0.8, 10);
+    expect(vad.getVoicedDurationMs()).toBe(500);
+    expect(vad.getMaxEnergy()).toBe(0.8);
+
+    // Reset for Phase 2
+    vad.resetVoicedDuration();
+    expect(vad.getVoicedDurationMs()).toBe(0);
+    expect(vad.getMaxEnergy()).toBe(0.8); // Calibration reference preserved!
+  });
+
+  it('calibrated VAD classifies correctly from first frame (no cold-start)', () => {
+    // Simulate warm-up capturing voice at energy 0.3
+    const warmupVad = createVadAccumulator(0.015);
+    for (let i = 0; i < 50; i++) warmupVad.processFrame(0.3, 10);
+    const referenceMaxEnergy = warmupVad.getMaxEnergy();
+
+    // Phase 2: create VAD with calibration reference
+    const phase2Vad = createVadAccumulator(0.015, referenceMaxEnergy);
+
+    // Noise frame at 0.001: 0.001 / 0.3 = 0.003 < 0.015 → unvoiced (correct!)
+    const noiseResult = phase2Vad.processFrame(0.001, 10);
+    expect(noiseResult.voiced).toBe(false);
+
+    // Voice frame at 0.15: 0.15 / 0.3 = 0.5 > 0.015 → voiced (correct!)
+    const voiceResult = phase2Vad.processFrame(0.15, 10);
+    expect(voiceResult.voiced).toBe(true);
+  });
+
+  it('uncalibrated VAD misclassifies noise as voiced during cold-start', () => {
+    // Without warm-up, maxEnergy starts at 1e-10
+    const coldVad = createVadAccumulator(0.015);
+
+    // Noise frame at 0.001: 0.001 / 1e-10 = 1e7 >> 0.015 → voiced (WRONG!)
+    const noiseResult = coldVad.processFrame(0.001, 10);
+    expect(noiseResult.voiced).toBe(true); // This is the cold-start problem
   });
 });
