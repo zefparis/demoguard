@@ -82,7 +82,7 @@ export const MAX_RECORDING_MS = readNumberEnv('MAX_RECORDING_MS', 12000);
  * See hybrid-vector-api/src/services/vocalQuickGate/vad-thresholds.ts for
  * full documentation.
  */
-export const VOICE_SEGMENT_MERGE_GAP_MS = readNumberEnv('VOICE_SEGMENT_MERGE_GAP_MS', 200);
+export const VOICE_SEGMENT_MERGE_GAP_MS = readNumberEnv('VOICE_SEGMENT_MERGE_GAP_MS', 300);
 
 // ─── Remote config live override ───────────────────────────────────
 //
