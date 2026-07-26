@@ -68,6 +68,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: 'base64data',
       voice_b64: 'voicebase64',
       mfcc_summary: [1, 2, 3],
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.hcs_session_public_id).toBe('sess_test');
@@ -83,6 +85,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: 'base64data',
       voice_b64: 'voicebase64',
       mfcc_summary: [1, 2, 3],
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.sensitive?.selfie_b64).toBe('base64data');
@@ -95,6 +99,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.sensitive).toBeUndefined();
@@ -105,6 +111,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.demo_guard.quality).toBeDefined();
@@ -118,6 +126,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.demo_guard.signals.behavior).toBeNull();
@@ -159,6 +169,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.demo_guard.signals.behavior).toBeDefined();
@@ -194,6 +206,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     expect(payload.demo_guard.signals.touch).toBeUndefined();
@@ -246,7 +260,7 @@ describe('buildDemoGuardPayload', () => {
       { ...voiceSkippedState, voiceDiagnostic: skippedVoiceDiag },
       null,
       null,
-      { selfie_b64: null, voice_b64: null, mfcc_summary: null },
+      { selfie_b64: null, voice_b64: null, mfcc_summary: null, voice_nonce: null, voice_challenge_id: null },
     );
 
     expect(payload.demo_guard.signals.voice).toBeUndefined();
@@ -318,6 +332,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
 
     // All edge conditions present
@@ -342,6 +358,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     const json = JSON.stringify(payload.demo_guard.signals);
     expect(json).not.toContain('"reaction"');
@@ -367,6 +385,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     const json = JSON.stringify(payload.demo_guard.signals);
     expect(json).not.toContain('"selfie":null');
@@ -386,6 +406,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     expect(payload.demo_guard.signals.cognitive?.summary).toBeDefined();
     expect(payload.demo_guard.signals.cognitive?.summary).not.toBeNull();
@@ -403,6 +425,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     expect(payload.demo_guard.signals.cognitive).toBeNull();
   });
@@ -418,6 +442,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     expect(payload.demo_guard.signals.touchDiagnostics).toBeDefined();
     expect(payload.demo_guard.signals.touchDiagnostics?.status).toBe('missing');
@@ -440,6 +466,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     expect(payload.demo_guard.signals.touchDiagnostics?.status).toBe('ok');
     expect(payload.demo_guard.signals.touchDiagnostics?.interactionCount).toBe(42);
@@ -457,6 +485,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: null,
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     expect(payload.demo_guard.signals.voiceDiagnostics).toBeDefined();
     expect(payload.demo_guard.signals.voiceDiagnostics?.status).toBe('not_checked');
@@ -473,6 +503,8 @@ describe('buildDemoGuardPayload', () => {
       selfie_b64: null,
       voice_b64: 'voicebase64',
       mfcc_summary: null,
+      voice_nonce: null,
+      voice_challenge_id: null,
     });
     expect(payload.demo_guard.signals.voiceDiagnostics?.status).toBe('not_checked');
     expect(payload.demo_guard.signals.voiceDiagnostics?.reasonSafe).toBe('not_attempted');
@@ -508,7 +540,7 @@ describe('buildDemoGuardPayload', () => {
 
     // OLD (buggy): buildDemoGuardPayload(staleState, ...) → device signals undefined
     const buggyPayload = buildDemoGuardPayload(staleState, null, null, {
-      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+      selfie_b64: null, voice_b64: null, mfcc_summary: null, voice_nonce: null, voice_challenge_id: null,
     });
     expect(buggyPayload.demo_guard.signals.motion).toBeUndefined();
     expect(buggyPayload.demo_guard.signals.orientation).toBeUndefined();
@@ -521,7 +553,7 @@ describe('buildDemoGuardPayload', () => {
     };
 
     const fixedPayload = buildDemoGuardPayload(stateWithSignals, null, null, {
-      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+      selfie_b64: null, voice_b64: null, mfcc_summary: null, voice_nonce: null, voice_challenge_id: null,
     });
 
     expect(fixedPayload.demo_guard.signals.motion).toBeDefined();
@@ -550,7 +582,7 @@ describe('buildDemoGuardPayload', () => {
     };
 
     const buggyPayload = buildDemoGuardPayload(staleState, null, null, {
-      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+      selfie_b64: null, voice_b64: null, mfcc_summary: null, voice_nonce: null, voice_challenge_id: null,
     });
     const buggyCompleteness = buggyPayload.demo_guard.quality.signal_completeness;
 
@@ -568,7 +600,7 @@ describe('buildDemoGuardPayload', () => {
     };
 
     const fixedPayload = buildDemoGuardPayload(stateWithSignals, null, null, {
-      selfie_b64: null, voice_b64: null, mfcc_summary: null,
+      selfie_b64: null, voice_b64: null, mfcc_summary: null, voice_nonce: null, voice_challenge_id: null,
     });
     const fixedCompleteness = fixedPayload.demo_guard.quality.signal_completeness;
 

@@ -206,6 +206,8 @@ describe('i18n — payload non-regression', () => {
       selfie_b64: 'data:image/png;base64,abc',
       voice_b64: 'data:audio/wav;base64,def',
       mfcc_summary: [1, 2, 3],
+      voice_nonce: null,
+      voice_challenge_id: null,
     };
 
     const payload = buildDemoGuardPayload(mockState, null, null, sensitive);
