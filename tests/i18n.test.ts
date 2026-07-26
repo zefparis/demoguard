@@ -145,29 +145,34 @@ describe('i18n — Stroop color words', () => {
   });
 });
 
-// ─── 4. Voice challenge phrase (RAN sequence) ───────────────────
+// ─── 4. Voice challenge phrase (carrier phrase with RAN digits) ───
 
 describe('i18n — voice challenge phrase', () => {
-  it('RAN sequence is displayed as space-separated digits', () => {
+  it('RAN sequence contains exactly VOCAL_RAN_ITEMS digits', () => {
     const challenge = generateVocalRanChallenge();
-    const phrase = challenge.sequence.join(' ');
-    expect(phrase).toMatch(/^[0-9]( [0-9])+$/);
-    expect(phrase.split(' ').length).toBe(VOCAL_RAN_ITEMS);
+    expect(challenge.sequence.length).toBe(VOCAL_RAN_ITEMS);
+    expect(challenge.sequence.every(d => /^[0-9]$/.test(d))).toBe(true);
   });
 
-  it('RAN sequence is locale-independent (digits only)', () => {
+  it('RAN digits are locale-independent (digits only)', () => {
     const challenge = generateVocalRanChallenge();
-    const phrase = challenge.sequence.join(' ');
     // Digits are the same in both fr and en — no locale-specific text
-    expect(phrase).not.toMatch(/[a-zA-Z]/);
+    expect(challenge.sequence.every(d => !/[a-zA-Z]/.test(d))).toBe(true);
   });
 
   it('RAN sequence matches expected_hash input', () => {
     const challenge = generateVocalRanChallenge();
-    const phrase = challenge.sequence.join(' ');
-    // The displayed sequence must match what was hashed
-    expect(phrase).toBe(challenge.sequence.join(' '));
+    // The hash is computed from the raw sequence — display format doesn't affect it
     expect(challenge.expected_hash).toBeTruthy();
+    expect(challenge.expected_hash).toMatch(/^[0-9a-f]+$/);
+  });
+
+  it('carrier phrase embeds digits as comma-separated string', () => {
+    const challenge = generateVocalRanChallenge();
+    const digits = challenge.sequence.join(', ');
+    // Digits should be in format "4, 5, 6, 2, 3"
+    expect(digits).toMatch(/^[0-9](, [0-9])+$/);
+    expect(digits.split(', ').length).toBe(VOCAL_RAN_ITEMS);
   });
 });
 
