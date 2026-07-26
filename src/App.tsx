@@ -53,11 +53,13 @@ export default function App() {
     voice_b64: null,
     voice_mimetype: null,
     mfcc_summary: null,
+    voice_nonce: null,
+    voice_challenge_id: null,
   });
 
   const handleStart = useCallback((sessionPublicId: string, testScope?: string | null) => {
     reset();
-    sensitiveRef.current = { selfie_b64: null, voice_b64: null, voice_mimetype: null, mfcc_summary: null };
+    sensitiveRef.current = { selfie_b64: null, voice_b64: null, voice_mimetype: null, mfcc_summary: null, voice_nonce: null, voice_challenge_id: null };
     dispatch({ type: 'START', sessionPublicId, testScope });
   }, [reset]);
 
@@ -72,9 +74,13 @@ export default function App() {
     voiceB64: string | null,
     vocalRan: VocalRanSignal,
     voiceMimetype: string | null,
+    voiceNonce: string | null,
+    voiceChallengeId: string | null,
   ) => {
     sensitiveRef.current.voice_b64 = voiceB64;
     sensitiveRef.current.voice_mimetype = voiceMimetype;
+    sensitiveRef.current.voice_nonce = voiceNonce;
+    sensitiveRef.current.voice_challenge_id = voiceChallengeId;
     dispatch({ type: 'VOICE_CAPTURED', voice, diagnostic, vocalRan });
   }, []);
 
@@ -194,6 +200,7 @@ export default function App() {
 
         {state.phase === 'voice' && (
           <VoiceScreen
+            sessionPublicId={state.sessionPublicId}
             session={session}
             onComplete={handleVoiceCaptured}
             onError={(reason) => dispatch({ type: 'ERROR', reason })}

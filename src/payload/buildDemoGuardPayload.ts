@@ -21,6 +21,8 @@ export interface SensitiveRef {
   voice_b64: string | null;
   voice_mimetype?: string | null;
   mfcc_summary: number[] | null;
+  voice_nonce: string | null;
+  voice_challenge_id: string | null;
 }
 
 export function buildDemoGuardPayload(
@@ -69,6 +71,8 @@ export function buildDemoGuardPayload(
   if (sensitive.voice_b64) sensitivePayload.voice_b64 = sensitive.voice_b64;
   if (sensitive.voice_mimetype) sensitivePayload.voice_mimetype = sensitive.voice_mimetype;
   if (sensitive.mfcc_summary) sensitivePayload.mfcc_summary = sensitive.mfcc_summary;
+  if (sensitive.voice_nonce) sensitivePayload.voice_nonce = sensitive.voice_nonce;
+  if (sensitive.voice_challenge_id) sensitivePayload.voice_challenge_id = sensitive.voice_challenge_id;
 
   return {
     hcs_session_public_id: state.sessionPublicId,

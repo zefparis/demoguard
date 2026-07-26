@@ -17,6 +17,8 @@ export interface SensitiveRef {
   voice_b64: string | null;
   voice_mimetype?: string | null;
   mfcc_summary: number[] | null;
+  voice_nonce: string | null;
+  voice_challenge_id: string | null;
 }
 
 export interface DemoGuardContextValue {

@@ -12,5 +12,6 @@ export const DEMOGUARD_ENABLED =
   (import.meta.env.VITE_DEMOGUARD_ENABLED as string | undefined) === 'true';
 
 export const DEMOGUARD_API_PATH = '/api/demoguard/verify';
+export const DEMOGUARD_VOICE_CHALLENGE_API_PATH = '/api/demoguard/voice-challenge';
 
 export const DEMOGUARD_REQUEST_TIMEOUT_MS = 10_000;
