@@ -24,9 +24,16 @@ function isUnsupported(signal: unknown): boolean {
 const VOICE_ONLY_CRITICAL_SLOTS: (keyof DemoGuardSignals)[] = ['voice'];
 const VOICE_ONLY_COGNITIVE_MODULES = 1; // only vocal_ran
 
+// When testScope === 'cognitive-only', selfie is not applicable (public campaign
+// mode — facial recognition removed for privacy). Only voice remains critical.
+const COGNITIVE_ONLY_CRITICAL_SLOTS: (keyof DemoGuardSignals)[] = ['voice'];
+
 export function computeSignalCompleteness(signals: DemoGuardSignals, testScope?: string | null): number {
   const isVoiceOnly = testScope === 'voice-only';
-  const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS : CRITICAL_SLOTS;
+  const isCognitiveOnly = testScope === 'cognitive-only';
+  const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS
+    : isCognitiveOnly ? COGNITIVE_ONLY_CRITICAL_SLOTS
+    : CRITICAL_SLOTS;
   const criticalFilled = criticalSlots.filter((s) => signals[s] != null).length;
   const optionalFilled = OPTIONAL_SLOTS.filter((s) => {
     const sig = signals[s];
@@ -57,9 +64,9 @@ function isDeviceReady(device: DemoGuardDeviceContext): boolean {
 }
 
 function arePermissionsReady(perms: DemoGuardPermissions, testScope?: string | null): boolean {
-  // In voice-only mode, camera permission is not required
+  // In voice-only and cognitive-only modes, camera permission is not required
   const essential: (keyof DemoGuardPermissions)[] =
-    testScope === 'voice-only' ? ['microphone'] : ['camera', 'microphone'];
+    testScope === 'voice-only' || testScope === 'cognitive-only' ? ['microphone'] : ['camera', 'microphone'];
   return essential.every((p) => perms[p] === 'granted' || perms[p] === 'prompt');
 }
 
@@ -70,12 +77,15 @@ export function computeQuality(
   testScope?: string | null,
 ): DemoGuardQuality {
   const isVoiceOnly = testScope === 'voice-only';
+  const isCognitiveOnly = testScope === 'cognitive-only';
   const signal_completeness = computeSignalCompleteness(signals, testScope);
   const device_ready = isDeviceReady(device);
   const permissions_ready = arePermissionsReady(permissions, testScope);
 
-  // In voice-only mode, selfie is not applicable — only voice is critical
-  const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS : CRITICAL_SLOTS;
+  // In voice-only and cognitive-only modes, selfie is not applicable
+  const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS
+    : isCognitiveOnly ? COGNITIVE_ONLY_CRITICAL_SLOTS
+    : CRITICAL_SLOTS;
   const critical_missing: string[] = [];
   for (const slot of criticalSlots) {
     if (signals[slot] == null) critical_missing.push(slot);

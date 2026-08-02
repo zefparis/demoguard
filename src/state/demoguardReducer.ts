@@ -101,7 +101,7 @@ export type Action =
 
 const VALID_TRANSITIONS: Record<Phase, Phase[]> = {
   idle: ['prep'],
-  prep: ['camera', 'voice', 'error'],
+  prep: ['camera', 'voice', 'test_reflex', 'error'],
   camera: ['test_reflex', 'error'],
   test_reflex: ['test_colors', 'error'],
   test_colors: ['test_memory', 'error'],
@@ -137,7 +137,10 @@ export function demoguardReducer(state: DemoGuardState, action: Action): DemoGua
     }
 
     case 'PREP_READY': {
-      const nextPhase: Phase = state.testScope === 'voice-only' ? 'voice' : 'camera';
+      const nextPhase: Phase =
+        state.testScope === 'voice-only' ? 'voice' :
+        state.testScope === 'cognitive-only' ? 'test_reflex' :
+        'camera';
       console.log('[Reducer] PREP_READY — testScope:', state.testScope, '→ nextPhase:', nextPhase);
       if (!isValidTransition(state.phase, nextPhase)) return state;
       return { ...state, phase: nextPhase };

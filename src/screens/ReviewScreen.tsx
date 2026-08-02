@@ -35,10 +35,12 @@ export function ReviewScreen({ state, behaviorPayload, onContinue }: Props) {
     <div className="screen">
       <PhaseHeader title={t('review.title')} progress={t('review.progress')} progressPct={90} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div className="card">
-          <h3 style={{ marginBottom: 8 }}>{t('review.selfie')}</h3>
-          <p className="muted">{state.signals.selfie?.captured ? t('review.captured') : t('review.missing')}</p>
-        </div>
+        {state.testScope !== 'cognitive-only' && (
+          <div className="card">
+            <h3 style={{ marginBottom: 8 }}>{t('review.selfie')}</h3>
+            <p className="muted">{state.signals.selfie?.captured ? t('review.captured') : t('review.missing')}</p>
+          </div>
+        )}
         <div className="card">
           <h3 style={{ marginBottom: 8 }}>{t('review.cognitive')}</h3>
           {cogModules.map((m) => (

@@ -26,13 +26,33 @@ export function IdleScreen({ onStart }: Props) {
     // Use getAll() for robustness against duplicate query params — take first value
     const scopes = params.getAll('testScope');
     console.log('[IdleScreen] testScope from URL:', scopes.length > 0 ? scopes[0] : '(not present)', 'all values:', scopes);
-    if (scopes.length > 0 && scopes[0] === 'voice-only') {
-      setTestScope('voice-only');
+    if (scopes.length > 0 && (scopes[0] === 'voice-only' || scopes[0] === 'cognitive-only')) {
+      setTestScope(scopes[0]);
     }
   }, []);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     const id = sessionId.trim() || `dg_${Date.now().toString(36)}`;
+
+    // FIX: In cognitive-only mode, the camera screen (which normally primes
+    // getUserMedia permission) is skipped. On iOS, the first getUserMedia call
+    // shows a permission prompt, and by the time the user taps "Allow", the
+    // user gesture context is lost — causing AudioContext.resume() to fail
+    // silently on the VoiceScreen, producing empty audio (invalid_audio).
+    //
+    // Fix: request mic permission here within the click handler (valid user
+    // gesture), then stop the stream immediately. By the time VoiceScreen
+    // runs, permission is already granted and AudioContext.resume() works
+    // synchronously. Default flow (with camera) is unaffected.
+    if (testScope === 'cognitive-only') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+      } catch {
+        // Permission denied or unavailable — VoiceScreen will handle the error
+      }
+    }
+
     onStart(id, testScope);
   };
 
