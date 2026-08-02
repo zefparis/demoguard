@@ -29,12 +29,14 @@ import type {
 
 /**
  * Reflex variance threshold for cognitive consistency scoring.
- * Kept at 10000 (σ ≈ 100ms) pending calibration on real distribution.
- * The clamp (Math.max(0, ...)) on reflexConsistency prevents the negative
- * values that collapsed consistency_score to 0.00 — the threshold itself
- * will be adjusted after distribution analysis.
+ * Calibrated on the real distribution of reflex_variance_ms (94 sessions):
+ *   median 2378, p75 8887, p90 18417, p95 44063, max 76074
+ * Threshold 30000 (σ ≈ 173ms) chosen to maximize discriminant variance
+ * (stddev 0.097, range 0.59–1.00) without penalizing normal usage
+ * (75% of sessions have variance < 8887 → reflexConsistency > 0.70).
+ * The clamp Math.max(0, ...) prevents negative values when variance > 30000.
  */
-const REFLEX_VARIANCE_THRESHOLD_MS2 = 10_000;
+const REFLEX_VARIANCE_THRESHOLD_MS2 = 30_000;
 
 function isModuleCoherent(signal: { quality: CognitiveQuality } | null): boolean {
   return signal !== null && signal.quality === 'ok';
