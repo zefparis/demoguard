@@ -106,6 +106,12 @@ export interface DemoGuardVoiceDiagnostic {
   mimeType: string | null;
   recorderState: 'inactive' | 'recording' | 'paused' | 'unknown' | null;
   chunksCount: number | null;
+  voicedDurationMs?: number | null;
+  postEncodeVoicedDurationMs?: number | null;
+  vadMode?: string | null;
+  maxEnergy?: number | null;
+  workletFirstFrameReceived?: boolean | null;
+  audioCtxStateAtStop?: string | null;
 }
 
 // ─── Device signal metadata ───────────────────────────────────────
@@ -213,6 +219,12 @@ export interface VoiceDiagnosticsSafe {
   livenessStatus: 'present' | 'review' | 'absent' | 'unknown';
   confidence: number | null;
   latencyMs: number | null;
+  voicedDurationMs?: number | null;
+  postEncodeVoicedDurationMs?: number | null;
+  vadMode?: string | null;
+  maxEnergy?: number | null;
+  workletFirstFrameReceived?: boolean | null;
+  audioCtxStateAtStop?: string | null;
 }
 
 export interface TouchDiagnosticsSafe {

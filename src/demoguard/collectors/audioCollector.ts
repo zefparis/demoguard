@@ -86,6 +86,12 @@ export async function recordVoiceChallenge(
           mimeType: recording.mimeType || null,
           recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
+          voicedDurationMs: recording.voicedDurationMs,
+          postEncodeVoicedDurationMs: recording.postEncodeVoicedDurationMs,
+          vadMode: recording.debug.vadMode,
+          maxEnergy: recording.debug.maxEnergy,
+          workletFirstFrameReceived: recording.debug.workletFirstFrameReceived ?? null,
+          audioCtxStateAtStop: recording.debug.audioCtxStateAtStop ?? null,
         },
       };
     }
@@ -117,6 +123,12 @@ export async function recordVoiceChallenge(
           mimeType: recording.mimeType || null,
           recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
+          voicedDurationMs: recording.voicedDurationMs,
+          postEncodeVoicedDurationMs: recording.postEncodeVoicedDurationMs,
+          vadMode: recording.debug.vadMode,
+          maxEnergy: recording.debug.maxEnergy,
+          workletFirstFrameReceived: recording.debug.workletFirstFrameReceived ?? null,
+          audioCtxStateAtStop: recording.debug.audioCtxStateAtStop ?? null,
         },
       };
     }
@@ -155,6 +167,12 @@ export async function recordVoiceChallenge(
           mimeType: recording.mimeType || null,
           recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
+          voicedDurationMs: recording.voicedDurationMs,
+          postEncodeVoicedDurationMs: recording.postEncodeVoicedDurationMs,
+          vadMode: recording.debug.vadMode,
+          maxEnergy: recording.debug.maxEnergy,
+          workletFirstFrameReceived: recording.debug.workletFirstFrameReceived ?? null,
+          audioCtxStateAtStop: recording.debug.audioCtxStateAtStop ?? null,
         },
       };
     }
@@ -198,6 +216,12 @@ export async function recordVoiceChallenge(
           mimeType: recording.mimeType,
           recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
           chunksCount: recording.chunksCount,
+          voicedDurationMs: recording.voicedDurationMs,
+          postEncodeVoicedDurationMs: recording.postEncodeVoicedDurationMs,
+          vadMode: recording.debug.vadMode,
+          maxEnergy: recording.debug.maxEnergy,
+          workletFirstFrameReceived: recording.debug.workletFirstFrameReceived ?? null,
+          audioCtxStateAtStop: recording.debug.audioCtxStateAtStop ?? null,
         },
       };
     }
@@ -241,6 +265,12 @@ export async function recordVoiceChallenge(
         mimeType: recording.mimeType,
         recorderState: recording.debug.recorderStateAtStop as 'inactive' | 'recording' | 'paused' | 'unknown',
         chunksCount: recording.chunksCount,
+        voicedDurationMs: recording.voicedDurationMs,
+        postEncodeVoicedDurationMs: recording.postEncodeVoicedDurationMs,
+        vadMode: recording.debug.vadMode,
+        maxEnergy: recording.debug.maxEnergy,
+        workletFirstFrameReceived: recording.debug.workletFirstFrameReceived ?? null,
+        audioCtxStateAtStop: recording.debug.audioCtxStateAtStop ?? null,
       },
     };
   } catch (err) {

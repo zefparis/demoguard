@@ -118,6 +118,12 @@ export function VoiceScreen({ sessionPublicId, session, onComplete, onError }: P
             livenessStatus: 'unknown',
             confidence: null,
             latencyMs: null,
+            voicedDurationMs: result.diagnostic.voicedDurationMs ?? null,
+            postEncodeVoicedDurationMs: result.diagnostic.postEncodeVoicedDurationMs ?? null,
+            vadMode: result.diagnostic.vadMode ?? null,
+            maxEnergy: result.diagnostic.maxEnergy ?? null,
+            workletFirstFrameReceived: result.diagnostic.workletFirstFrameReceived ?? null,
+            audioCtxStateAtStop: result.diagnostic.audioCtxStateAtStop ?? null,
           }
         : null;
 

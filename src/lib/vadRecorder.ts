@@ -133,6 +133,8 @@ export interface VadRecordingResult {
     maxEnergy: number;
     warmupMaxEnergy?: number;
     warmupDurationMs?: number;
+    workletFirstFrameReceived?: boolean;
+    audioCtxStateAtStop?: string;
   };
 }
 
@@ -552,6 +554,8 @@ async function recordAudioWithVadSingleAttempt(options: {
       maxEnergy: vad.getMaxEnergy(),
       warmupMaxEnergy,
       warmupDurationMs,
+      workletFirstFrameReceived,
+      audioCtxStateAtStop: audioCtx.state,
     },
   };
 }
