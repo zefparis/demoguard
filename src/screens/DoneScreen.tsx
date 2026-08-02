@@ -148,7 +148,7 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
   }, [t]);
 
   return (
-    <div className="screen-center">
+    <div className="screen-scroll">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <div style={{ fontSize: 56, marginBottom: 8 }}>🖐️</div>

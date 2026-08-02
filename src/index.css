@@ -72,6 +72,22 @@ body {
   gap: 16px;
 }
 
+/* Scrollable variant for content-heavy screens (DoneScreen).
+   justify-content: flex-start so overflow content is reachable from top,
+   unlike .screen-center where centered overflow clips the top (flexbox bug). */
+.screen-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  gap: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
