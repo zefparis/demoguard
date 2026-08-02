@@ -78,6 +78,24 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
           <p style={{ fontSize: 12, color: 'var(--muted)', opacity: 0.7, marginTop: 8 }}>
             {t('done.brainAge.disclaimer')}
           </p>
+          {decisionLabel && (
+            <div style={{
+              marginTop: 12,
+              padding: '6px 16px',
+              borderRadius: 20,
+              fontSize: 14,
+              fontWeight: 600,
+              display: 'inline-block',
+              background: decision === 'APPROVED' ? '#dcfce7'
+                : decision === 'REVIEW' ? '#fef9c3'
+                : '#fee2e2',
+              color: decision === 'APPROVED' ? '#166534'
+                : decision === 'REVIEW' ? '#854d0e'
+                : '#991b1b',
+            }}>
+              {decisionLabel}
+            </div>
+          )}
         </div>
       ) : (
         <div className="result-icon">{ok ? '✅' : '⚠️'}</div>
