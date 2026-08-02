@@ -107,7 +107,7 @@ const VALID_TRANSITIONS: Record<Phase, Phase[]> = {
   test_colors: ['test_memory', 'error'],
   test_memory: ['test_compare', 'error'],
   test_compare: ['test_path', 'error'],
-  test_path: ['voice', 'error'],
+  test_path: ['voice', 'review', 'error'],
   voice: ['review', 'error'],
   review: ['device_signals', 'error'],
   device_signals: ['readiness', 'error'],
@@ -169,7 +169,7 @@ export function demoguardReducer(state: DemoGuardState, action: Action): DemoGua
         stroop: 'test_memory',
         digit_span: 'test_compare',
         n_back: 'test_path',
-        trail_tap: 'voice',
+        trail_tap: state.testScope === 'cognitive-only' ? 'review' : 'voice',
       };
       const nextPhase = phaseAfter[testName];
       if (!nextPhase || !isValidTransition(state.phase, nextPhase)) return state;

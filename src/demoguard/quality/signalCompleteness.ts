@@ -24,9 +24,9 @@ function isUnsupported(signal: unknown): boolean {
 const VOICE_ONLY_CRITICAL_SLOTS: (keyof DemoGuardSignals)[] = ['voice'];
 const VOICE_ONLY_COGNITIVE_MODULES = 1; // only vocal_ran
 
-// When testScope === 'cognitive-only', selfie is not applicable (public campaign
-// mode — facial recognition removed for privacy). Only voice remains critical.
-const COGNITIVE_ONLY_CRITICAL_SLOTS: (keyof DemoGuardSignals)[] = ['voice'];
+// When testScope === 'cognitive-only', selfie and voice are not applicable (public campaign
+// mode — facial recognition removed for privacy, vocal removed for iOS/Safari compatibility).
+const COGNITIVE_ONLY_CRITICAL_SLOTS: (keyof DemoGuardSignals)[] = [];
 
 export function computeSignalCompleteness(signals: DemoGuardSignals, testScope?: string | null): number {
   const isVoiceOnly = testScope === 'voice-only';
@@ -47,13 +47,16 @@ export function computeSignalCompleteness(signals: DemoGuardSignals, testScope?:
     const cog = signals.cognitive;
     if (isVoiceOnly) {
       cognitiveFilled = cog.vocal_ran ? 1 : 0;
+    } else if (isCognitiveOnly) {
+      const cogModules = [cog.reflex, cog.stroop, cog.digit_span, cog.n_back, cog.trail_tap];
+      cognitiveFilled = cogModules.filter((m) => m !== null).length;
     } else {
       const cogModules = [cog.reflex, cog.stroop, cog.digit_span, cog.n_back, cog.trail_tap, cog.vocal_ran];
       cognitiveFilled = cogModules.filter((m) => m !== null).length;
     }
   }
 
-  const cognitiveTotal = isVoiceOnly ? VOICE_ONLY_COGNITIVE_MODULES : 6;
+  const cognitiveTotal = isVoiceOnly ? VOICE_ONLY_COGNITIVE_MODULES : isCognitiveOnly ? 5 : 6;
   const totalSlots = criticalSlots.length + OPTIONAL_SLOTS.length + cognitiveTotal;
   const filled = criticalFilled + optionalFilled + cognitiveFilled;
   return filled / totalSlots;
@@ -64,9 +67,11 @@ function isDeviceReady(device: DemoGuardDeviceContext): boolean {
 }
 
 function arePermissionsReady(perms: DemoGuardPermissions, testScope?: string | null): boolean {
-  // In voice-only and cognitive-only modes, camera permission is not required
+  // In voice-only mode, only microphone is required. Cognitive-only needs no media permissions.
   const essential: (keyof DemoGuardPermissions)[] =
-    testScope === 'voice-only' || testScope === 'cognitive-only' ? ['microphone'] : ['camera', 'microphone'];
+    testScope === 'voice-only' ? ['microphone'] :
+    testScope === 'cognitive-only' ? [] :
+    ['camera', 'microphone'];
   return essential.every((p) => perms[p] === 'granted' || perms[p] === 'prompt');
 }
 
@@ -83,6 +88,7 @@ export function computeQuality(
   const permissions_ready = arePermissionsReady(permissions, testScope);
 
   // In voice-only and cognitive-only modes, selfie is not applicable
+  // In cognitive-only mode, voice is also not applicable
   const criticalSlots = isVoiceOnly ? VOICE_ONLY_CRITICAL_SLOTS
     : isCognitiveOnly ? COGNITIVE_ONLY_CRITICAL_SLOTS
     : CRITICAL_SLOTS;

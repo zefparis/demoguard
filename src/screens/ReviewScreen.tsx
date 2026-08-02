@@ -27,7 +27,7 @@ export function ReviewScreen({ state, behaviorPayload, onContinue }: Props) {
         { name: t('review.module.digitSpan'), signal: cognitive.digit_span },
         { name: t('review.module.nback'), signal: cognitive.n_back },
         { name: t('review.module.trailTap'), signal: cognitive.trail_tap },
-        { name: t('review.module.vocalRan'), signal: cognitive.vocal_ran },
+        ...(state.testScope !== 'cognitive-only' ? [{ name: t('review.module.vocalRan'), signal: cognitive.vocal_ran }] : []),
       ]
     : [];
 
@@ -50,10 +50,12 @@ export function ReviewScreen({ state, behaviorPayload, onContinue }: Props) {
             </div>
           ))}
         </div>
-        <div className="card">
-          <h3 style={{ marginBottom: 8 }}>{t('review.voice')}</h3>
-          <p className="muted">{state.signals.voice?.recorded ? t('review.recorded') : t('review.missingVoice')}</p>
-        </div>
+        {state.testScope !== 'cognitive-only' && (
+          <div className="card">
+            <h3 style={{ marginBottom: 8 }}>{t('review.voice')}</h3>
+            <p className="muted">{state.signals.voice?.recorded ? t('review.recorded') : t('review.missingVoice')}</p>
+          </div>
+        )}
         {behaviorPayload && (
           <div className="card">
             <h3 style={{ marginBottom: 8 }}>{t('review.behavior')}</h3>
