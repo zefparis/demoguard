@@ -27,6 +27,16 @@ import type {
   HumanLikelihood,
 } from './cognitiveTypes';
 
+/**
+ * Reflex variance threshold for cognitive consistency scoring.
+ * Aligned with VARIANCE_THRESHOLDS.reflex = 100_000 in behaviorScoring.ts
+ * (σ ≈ 316ms). The old hardcoded 10000 (σ ≈ 100ms) was 10x too strict —
+ * a single distracted round (e.g. 700ms vs 350ms avg → variance 122_500)
+ * drove reflexConsistency negative, collapsing consistency_score to 0.00
+ * via the final Math.max(0, ...) clamp.
+ */
+const REFLEX_VARIANCE_THRESHOLD_MS2 = 100_000;
+
 function isModuleCoherent(signal: { quality: CognitiveQuality } | null): boolean {
   return signal !== null && signal.quality === 'ok';
 }
@@ -101,7 +111,7 @@ export function computeCognitiveSummary(signals: CognitiveSignals): CognitiveSum
       : 0.5;
 
     const reflexConsistency = signals.reflex
-      ? Math.min(1, 1 - signals.reflex.variance_ms / 10000)
+      ? Math.min(1, Math.max(0, 1 - signals.reflex.variance_ms / REFLEX_VARIANCE_THRESHOLD_MS2))
       : 0.5;
 
     const completionRatio = completedModules / 6;
