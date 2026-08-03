@@ -32,46 +32,49 @@ import {
   isPublicCampaignDomain,
   BRAIN_AGE_SESSION_ENDPOINT,
 } from '../demoguard/constants';
+import { FingerprintMotif } from '../components/FingerprintMotif';
 
 interface Props {
   onStart: (sessionPublicId: string, testScope?: string | null) => void;
 }
 
-/** Fingerprint motif: 7 concentric arcs, cyan→violet gradient,
- *  decreasing opacity outward. Inline SVG for visual continuity
- *  with the landing page. */
-function FingerprintMotif() {
-  const arcs = [12, 22, 32, 42, 52, 62, 72];
+// ─── Inline SVG icons for chips (no emoji — consistent across OS) ────────
+
+function BoltIcon({ color }: { color: string }) {
   return (
-    <svg
-      width="120"
-      height="120"
-      viewBox="0 0 120 120"
-      fill="none"
-      aria-hidden
-      className="idle-fingerprint"
-    >
-      <defs>
-        <linearGradient id="fp-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#4CF2E0" />
-          <stop offset="100%" stopColor="#8A7CFF" />
-        </linearGradient>
-      </defs>
-      {arcs.map((r, i) => {
-        const opacity = 1 - i * 0.12;
-        return (
-          <circle
-            key={r}
-            cx="60"
-            cy="60"
-            r={r}
-            stroke="url(#fp-grad)"
-            strokeWidth="2"
-            strokeOpacity={opacity}
-            fill="none"
-          />
-        );
-      })}
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M13 2 L4 14 L11 14 L9 22 L20 9 L13 9 Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+function BrainIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M9 3 C6.5 3 5 5 5 7 C5 7 3 7.5 3 10 C3 11.5 4 12.5 5 13 C5 13 4 14 4 16 C4 18 6 19.5 8 19 C8 19.5 8.5 20 9.5 20 M9 3 C9 3 10 2.5 12 2.5 C14 2.5 15 3 15 3 M9 3 L9 20 M15 3 C17.5 3 19 5 19 7 C19 7 21 7.5 21 10 C21 11.5 20 12.5 19 13 C19 13 20 14 20 16 C20 18 18 19.5 16 19 C16 19.5 15.5 20 14.5 20 M15 3 L15 20"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function FingerIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M9 11 L9 6 C9 5 9.5 4 11 4 C12.5 4 13 5 13 6 L13 11 M13 11 L13 8 C13 7 13.5 6 15 6 C16.5 6 17 7 17 8 L17 12 M17 12 L17 10 C17 9 17.5 8 19 8 C20.5 8 21 9 21 10 L21 15 C21 19 18 21 14 21 C11 21 9 19.5 7.5 17 L5 13 C4.5 12 5 11 6 11 C7 11 8 12 8.5 12.5"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -172,22 +175,22 @@ export function IdleScreen({ onStart }: Props) {
         {t('app.langSwitch')}
       </button>
 
-      <FingerprintMotif />
+      <FingerprintMotif size={120} className="idle-fingerprint" />
 
       <h1 className="idle-title">{t('app.title')}</h1>
       <p className="idle-subtitle">{t('app.subtitle')}</p>
 
       <div className="idle-chips">
         <div className="idle-chip">
-          <span className="idle-chip-icon" style={{ color: '#4CF2E0' }}>⚡</span>
+          <span className="idle-chip-icon"><BoltIcon color="#4CF2E0" /></span>
           {t('app.chip.reflexes')}
         </div>
         <div className="idle-chip">
-          <span className="idle-chip-icon" style={{ color: '#8A7CFF' }}>🧠</span>
+          <span className="idle-chip-icon"><BrainIcon color="#8A7CFF" /></span>
           {t('app.chip.memory')}
         </div>
         <div className="idle-chip">
-          <span className="idle-chip-icon" style={{ color: '#FF6B8B' }}>👆</span>
+          <span className="idle-chip-icon"><FingerIcon color="#FF6B8B" /></span>
           {t('app.chip.gesture')}
         </div>
       </div>

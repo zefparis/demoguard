@@ -27,6 +27,7 @@ import type { DemoGuardSafeResponse } from '../demoguard/types';
 import type { CognitiveSignals } from '../demoguard/cognitive/cognitiveTypes';
 import { computeBrainAge } from '../demoguard/cognitive/brainAge';
 import { useI18n } from '../i18n/I18nContext';
+import { FingerprintMotif } from '../components/FingerprintMotif';
 
 interface Props {
   response: DemoGuardSafeResponse | null;
@@ -51,45 +52,6 @@ function fmtNum(v: number | null | undefined): string {
 function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined || Number.isNaN(v)) return '—';
   return `${Math.round(v * 100)}%`;
-}
-
-// ─── Fingerprint motif (reused from IdleScreen) ────────────────────────────
-
-/** 7 concentric arcs, cyan→violet gradient, decreasing opacity outward. */
-function FingerprintMotif() {
-  const arcs = [12, 22, 32, 42, 52, 62, 72];
-  return (
-    <svg
-      width="52"
-      height="52"
-      viewBox="0 0 120 120"
-      fill="none"
-      aria-hidden
-      className="done-fingerprint"
-    >
-      <defs>
-        <linearGradient id="done-fp-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#4CF2E0" />
-          <stop offset="100%" stopColor="#8A7CFF" />
-        </linearGradient>
-      </defs>
-      {arcs.map((r, i) => {
-        const opacity = 1 - i * 0.12;
-        return (
-          <circle
-            key={r}
-            cx="60"
-            cy="60"
-            r={r}
-            stroke="url(#done-fp-grad)"
-            strokeWidth="2"
-            strokeOpacity={opacity}
-            fill="none"
-          />
-        );
-      })}
-    </svg>
-  );
 }
 
 // ─── Metric row component ───────────────────────────────────────────────────
@@ -221,7 +183,7 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
     <div className="done-screen screen-scroll">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="done-header">
-        <FingerprintMotif />
+        <FingerprintMotif size={52} className="done-fingerprint" />
         <h2 className="done-title">
           {t('done.fingerprint.title')}
         </h2>
