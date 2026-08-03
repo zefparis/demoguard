@@ -1,18 +1,22 @@
 /**
- * DemoGuard — DoneScreen (result display)
+ * DemoGuard — DoneScreen (result display) — campaign UX
  *
  * "Ton empreinte d'humanité" — two-layer public display:
  *   - Cognitive layer ("Ce que tu fais"): reflex, memory, attention
  *   - Behavioral layer ("Comment tu le fais"): rhythm, confidence, consistency
  *
- * Technical details (status, decision, trust level, brain age breakdown) remain
- * available for admin/debug via a collapsible section, closed by default.
+ * Campaign palette applied (--camp-*), fingerprint SVG motif reused from
+ * IdleScreen. Inline styles migrated to CSS classes. Pedagogical block
+ * "Pourquoi c'est dur à imiter" added (collapsible, after action buttons).
+ * Technical details (debug) preserved intact, now very discreet at bottom.
  *
  * INVARIANTS:
  *   - No auth vocabulary ("Accepté", "Statut: submitted") in the public view.
  *   - Technical details preserved intact behind the collapsible.
  *   - computeBrainAge is NOT called here anymore (brainAge.ts kept for reuse).
  *   - Pure display change — no modification to decision logic, pipeline, or payload.
+ *   - fmtMs/fmtNum/fmtPct helpers and "—" fallback preserved.
+ *   - navigator.share + clipboard fallback unchanged.
  *
  * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
  * Patents Pending FR2514274 | FR2514546
@@ -49,13 +53,52 @@ function fmtPct(v: number | null | undefined): string {
   return `${Math.round(v * 100)}%`;
 }
 
+// ─── Fingerprint motif (reused from IdleScreen) ────────────────────────────
+
+/** 7 concentric arcs, cyan→violet gradient, decreasing opacity outward. */
+function FingerprintMotif() {
+  const arcs = [12, 22, 32, 42, 52, 62, 72];
+  return (
+    <svg
+      width="52"
+      height="52"
+      viewBox="0 0 120 120"
+      fill="none"
+      aria-hidden
+      className="done-fingerprint"
+    >
+      <defs>
+        <linearGradient id="done-fp-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#4CF2E0" />
+          <stop offset="100%" stopColor="#8A7CFF" />
+        </linearGradient>
+      </defs>
+      {arcs.map((r, i) => {
+        const opacity = 1 - i * 0.12;
+        return (
+          <circle
+            key={r}
+            cx="60"
+            cy="60"
+            r={r}
+            stroke="url(#done-fp-grad)"
+            strokeWidth="2"
+            strokeOpacity={opacity}
+            fill="none"
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 // ─── Metric row component ───────────────────────────────────────────────────
 
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-      <span style={{ fontSize: 14, color: 'var(--muted)' }}>{label}</span>
-      <span style={{ fontSize: 16, fontWeight: 600 }}>{value}</span>
+    <div className="done-metric-row">
+      <span className="done-metric-label">{label}</span>
+      <span className="done-metric-value">{value}</span>
     </div>
   );
 }
@@ -65,19 +108,45 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 function LayerCard({
   title,
   icon,
+  variant,
   children,
 }: {
   title: string;
   icon: string;
+  variant: 'cognitive' | 'behavior';
   children: React.ReactNode;
 }) {
   return (
-    <div className="card" style={{ width: '100%', marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 20 }}>{icon}</span>
-        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{title}</h3>
+    <div className={`done-layer-card done-layer-card-${variant}`}>
+      <div className="done-layer-header">
+        <span className={`done-layer-icon done-layer-icon-${variant}`}>{icon}</span>
+        <h3 className={`done-layer-title done-layer-title-${variant}`}>{title}</h3>
       </div>
       {children}
+    </div>
+  );
+}
+
+// ─── Pedagogical item component ─────────────────────────────────────────────
+
+function PedagogyItem({
+  icon,
+  iconColor,
+  title,
+  text,
+}: {
+  icon: string;
+  iconColor: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="done-pedagogy-item">
+      <span className="done-pedagogy-item-icon" style={{ color: iconColor }}>{icon}</span>
+      <div className="done-pedagogy-item-body">
+        <p className="done-pedagogy-item-title">{title}</p>
+        <p className="done-pedagogy-item-text">{text}</p>
+      </div>
     </div>
   );
 }
@@ -87,6 +156,7 @@ function LayerCard({
 export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, onReset }: Props) {
   const { t } = useI18n();
   const [showDetails, setShowDetails] = useState(false);
+  const [showPedagogy, setShowPedagogy] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const ok = response?.ok ?? false;
@@ -148,20 +218,24 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
   }, [t]);
 
   return (
-    <div className="screen-scroll">
+    <div className="done-screen screen-scroll">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <div style={{ fontSize: 56, marginBottom: 8 }}>🖐️</div>
-        <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>
+      <div className="done-header">
+        <FingerprintMotif />
+        <h2 className="done-title">
           {t('done.fingerprint.title')}
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--muted)' }}>
+        <p className="done-subtitle">
           {t('done.fingerprint.subtitle')}
         </p>
       </div>
 
       {/* ── Cognitive layer ────────────────────────────────────────── */}
-      <LayerCard title={t('done.fingerprint.cognitiveLayer')} icon="🧠">
+      <LayerCard
+        title={t('done.fingerprint.cognitiveLayer')}
+        icon="🧠"
+        variant="cognitive"
+      >
         <MetricRow label={t('done.fingerprint.reactionSpeed')} value={reactionSpeed} />
         <MetricRow label={t('done.fingerprint.range')} value={range} />
         <MetricRow label={t('done.fingerprint.workingMemory')} value={workingMemory} />
@@ -169,7 +243,11 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
       </LayerCard>
 
       {/* ── Behavioral layer ───────────────────────────────────────── */}
-      <LayerCard title={t('done.fingerprint.behaviorLayer')} icon="✋">
+      <LayerCard
+        title={t('done.fingerprint.behaviorLayer')}
+        icon="✋"
+        variant="behavior"
+      >
         <MetricRow label={t('done.fingerprint.motorRhythm')} value={motorRhythm} />
         <MetricRow label={t('done.fingerprint.motorConfidence')} value={motorConfidence} />
         <MetricRow label={t('done.fingerprint.consistency')} value={consistency} />
@@ -177,105 +255,123 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
       </LayerCard>
 
       {/* ── Conclusion ─────────────────────────────────────────────── */}
-      <p style={{
-        fontSize: 14,
-        color: 'var(--muted)',
-        textAlign: 'center',
-        lineHeight: 1.5,
-        marginBottom: 20,
-        fontStyle: 'italic',
-      }}>
+      <p className="done-conclusion">
         {t('done.fingerprint.conclusion')}
       </p>
 
       {/* ── Buttons ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-        <button className="btn" onClick={handleShare}>
+      <div className="done-buttons">
+        <button className="done-btn-share" onClick={handleShare}>
           {shareStatus === 'copied'
             ? t('done.fingerprint.shareFallback')
             : shareStatus === 'error'
             ? t('done.fingerprint.shareError')
             : t('done.fingerprint.share')}
         </button>
-        <button className="btn" onClick={onReset} style={{ marginTop: 0 }}>
+        <button className="done-btn-reset" onClick={onReset}>
           {t('done.newControl')}
         </button>
       </div>
 
-      {/* ── Technical details (collapsible, closed by default) ─────── */}
+      {/* ── Pedagogical block (collapsible, closed by default) ─────── */}
+      <div className="done-pedagogy-divider" />
+      <button
+        className="done-pedagogy-toggle"
+        onClick={() => setShowPedagogy(!showPedagogy)}
+      >
+        {showPedagogy ? '▼' : '▶'} {t('done.pedagogy.title')}
+      </button>
+      {showPedagogy && (
+        <div className="done-pedagogy-content">
+          <PedagogyItem
+            icon="📊"
+            iconColor="#4CF2E0"
+            title={t('done.pedagogy.irregularity.title')}
+            text={t('done.pedagogy.irregularity.text')}
+          />
+          <PedagogyItem
+            icon="⚡"
+            iconColor="#8A7CFF"
+            title={t('done.pedagogy.conflict.title')}
+            text={t('done.pedagogy.conflict.text')}
+          />
+          <PedagogyItem
+            icon="👆"
+            iconColor="#FF6B8B"
+            title={t('done.pedagogy.gesture.title')}
+            text={t('done.pedagogy.gesture.text')}
+          />
+          <div className="done-pedagogy-conclusion">
+            {t('done.pedagogy.conclusion')}
+          </div>
+        </div>
+      )}
+
+      {/* ── Technical details (collapsible, closed by default, very discreet) ── */}
       {response && (
-        <div style={{ width: '100%', marginTop: 16 }}>
+        <>
           <button
+            className="done-tech-toggle"
             onClick={() => setShowDetails(!showDetails)}
-            style={{
-              width: '100%',
-              background: 'none',
-              border: 'none',
-              color: 'var(--muted)',
-              fontSize: 13,
-              cursor: 'pointer',
-              padding: '8px 0',
-              textAlign: 'center',
-            }}
           >
             {showDetails ? '▼' : '▶'} {t('done.technicalDetails')}
           </button>
           {showDetails && (
-            <div className="card" style={{ width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span>{t('done.status')}</span>
-                <span className="muted">{response.status}</span>
+            <div className="done-tech-card">
+              <div className="done-tech-row">
+                <span className="done-tech-label">{t('done.status')}</span>
+                <span className="done-tech-value">{response.status}</span>
               </div>
               {response.quality_score !== undefined && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.qualityScore')}</span>
-                  <span className="muted">{response.quality_score}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.qualityScore')}</span>
+                  <span className="done-tech-value">{response.quality_score}</span>
                 </div>
               )}
               {decisionLabel && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.decision')}</span>
-                  <span className="muted">{decisionLabel}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.decision')}</span>
+                  <span className="done-tech-value">{decisionLabel}</span>
                 </div>
               )}
               {fusion?.trustLevel && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.trustLevel')}</span>
-                  <span className="muted">{fusion.trustLevel}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.trustLevel')}</span>
+                  <span className="done-tech-value">{fusion.trustLevel}</span>
                 </div>
               )}
               {fusion?.cognitiveStatus && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.cognition')}</span>
-                  <span className="muted">{fusion.cognitiveStatus}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.cognition')}</span>
+                  <span className="done-tech-value">{fusion.cognitiveStatus}</span>
                 </div>
               )}
               {fusion?.vocalStatus && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.voice')}</span>
-                  <span className="muted">{fusion.vocalStatus}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.voice')}</span>
+                  <span className="done-tech-value">{fusion.vocalStatus}</span>
                 </div>
               )}
               {fusion?.behaviorStatus && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.behavior')}</span>
-                  <span className="muted">{fusion.behaviorStatus}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.behavior')}</span>
+                  <span className="done-tech-value">{fusion.behaviorStatus}</span>
                 </div>
               )}
               {response.traceId && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <span>{t('done.trace')}</span>
-                  <span className="muted" style={{ fontSize: 12 }}>{response.traceId}</span>
+                <div className="done-tech-row">
+                  <span className="done-tech-label">{t('done.trace')}</span>
+                  <span className="done-tech-value done-tech-trace">{response.traceId}</span>
                 </div>
               )}
               {response.message && (
-                <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>{response.message}</p>
+                <p className="done-tech-message">{response.message}</p>
               )}
               {/* Brain age breakdown for debug */}
               {brainAge && (
-                <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Brain Age Breakdown:</p>
-                  <p style={{ fontSize: 11, color: 'var(--muted)' }}>
+                <div className="done-tech-brainage">
+                  <p className="done-tech-brainage-title">Brain Age Breakdown:</p>
+                  <p className="done-tech-brainage-detail">
                     Reflex: {brainAge.breakdown.reflexDelta >= 0 ? '+' : ''}{brainAge.breakdown.reflexDelta}y ·
                     Stroop: {brainAge.breakdown.stroopDelta >= 0 ? '+' : ''}{brainAge.breakdown.stroopDelta}y ·
                     Memory: {brainAge.breakdown.memoryDelta >= 0 ? '+' : ''}{brainAge.breakdown.memoryDelta}y
@@ -284,12 +380,12 @@ export function DoneScreen({ response, cognitiveSignals, testScope: _testScope, 
               )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Fallback when no response at all */}
       {!response && (
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
+        <div className="done-fallback">
           <div className="result-icon">{ok ? '✅' : '⚠️'}</div>
           <h2>{ok ? t('done.complete') : t('done.uncertain')}</h2>
         </div>

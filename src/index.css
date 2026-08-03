@@ -929,3 +929,305 @@ body {
   from { opacity: 0; }
   to { opacity: 0.4; }
 }
+
+/* ─── DoneScreen campaign styles ───────────────────────────────────── */
+
+.done-screen {
+  background: var(--camp-bg);
+  color: #F5F3FF;
+  min-height: 100dvh;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.done-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.done-fingerprint {
+  margin-bottom: 8px;
+}
+
+.done-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  color: #F5F3FF;
+}
+
+.done-subtitle {
+  font-size: 14px;
+  color: #A7A3D6;
+  margin: 0;
+}
+
+/* ── Layer cards ── */
+
+.done-layer-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.done-layer-card-cognitive {
+  background: rgba(76, 242, 224, 0.07);
+}
+
+.done-layer-card-behavior {
+  background: rgba(138, 124, 255, 0.09);
+}
+
+.done-layer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.done-layer-icon {
+  font-size: 20px;
+}
+
+.done-layer-icon-cognitive {
+  color: var(--camp-cyan);
+}
+
+.done-layer-icon-behavior {
+  color: var(--camp-violet);
+}
+
+.done-layer-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.done-layer-title-cognitive {
+  color: var(--camp-cyan);
+}
+
+.done-layer-title-behavior {
+  color: var(--camp-violet);
+}
+
+.done-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.done-metric-label {
+  font-size: 14px;
+  color: #A7A3D6;
+}
+
+.done-metric-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #F5F3FF;
+}
+
+/* ── Conclusion ── */
+
+.done-conclusion {
+  font-size: 14px;
+  color: #A7A3D6;
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+/* ── Buttons ── */
+
+.done-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.done-btn-share {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  border: none;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 48px;
+  background: var(--camp-cyan);
+  color: var(--camp-bg);
+}
+
+.done-btn-share:active {
+  opacity: 0.85;
+}
+
+.done-btn-reset {
+  width: 100%;
+  padding: 14px 24px;
+  border-radius: 12px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 48px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #A7A3D6;
+}
+
+.done-btn-reset:active {
+  opacity: 0.85;
+}
+
+/* ── Pedagogical block ── */
+
+.done-pedagogy-divider {
+  width: 100%;
+  max-width: 420px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 20px 0;
+}
+
+.done-pedagogy-toggle {
+  width: 100%;
+  max-width: 420px;
+  background: none;
+  border: none;
+  color: var(--camp-cyan);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.done-pedagogy-content {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.done-pedagogy-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.done-pedagogy-item-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.done-pedagogy-item-body {
+  flex: 1;
+}
+
+.done-pedagogy-item-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: #F5F3FF;
+}
+
+.done-pedagogy-item-text {
+  font-size: 13px;
+  color: #A7A3D6;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.done-pedagogy-conclusion {
+  background: rgba(76, 242, 224, 0.07);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #A7A3D6;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── Technical details ── */
+
+.done-tech-toggle {
+  width: 100%;
+  max-width: 420px;
+  background: none;
+  border: none;
+  color: #6E6A9E;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 12px 0;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.done-tech-card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.done-tech-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.done-tech-label {
+  color: #F5F3FF;
+}
+
+.done-tech-value {
+  color: #A7A3D6;
+}
+
+.done-tech-trace {
+  font-size: 12px;
+}
+
+.done-tech-message {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #A7A3D6;
+}
+
+.done-tech-brainage {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.done-tech-brainage-title {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #F5F3FF;
+}
+
+.done-tech-brainage-detail {
+  font-size: 11px;
+  color: #A7A3D6;
+}
+
+/* ── Fallback ── */
+
+.done-fallback {
+  text-align: center;
+  margin-top: 16px;
+}
