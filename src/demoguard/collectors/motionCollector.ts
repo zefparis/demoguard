@@ -44,6 +44,12 @@ interface MotionWindow {
   count: number;
   magSum: number;
   magSqSum: number;
+  xSum: number;
+  xSqSum: number;
+  ySum: number;
+  ySqSum: number;
+  zSum: number;
+  zSqSum: number;
 }
 
 let streamingState: {
@@ -57,7 +63,7 @@ let streamingState: {
 } | null = null;
 
 function newWindow(): MotionWindow {
-  return { count: 0, magSum: 0, magSqSum: 0 };
+  return { count: 0, magSum: 0, magSqSum: 0, xSum: 0, xSqSum: 0, ySum: 0, ySqSum: 0, zSum: 0, zSqSum: 0 };
 }
 
 function flushWindow(): void {
@@ -115,6 +121,15 @@ export function startMotionCollection(permission: PermissionStatus = 'granted'):
       streamingState.currentWindow.count++;
       streamingState.currentWindow.magSum += mag;
       streamingState.currentWindow.magSqSum += mag * mag;
+      const ax = a.x ?? 0;
+      const ay = a.y ?? 0;
+      const az = a.z ?? 0;
+      streamingState.currentWindow.xSum += ax;
+      streamingState.currentWindow.xSqSum += ax * ax;
+      streamingState.currentWindow.ySum += ay;
+      streamingState.currentWindow.ySqSum += ay * ay;
+      streamingState.currentWindow.zSum += az;
+      streamingState.currentWindow.zSqSum += az * az;
       streamingState.totalSamples++;
     }
   };
@@ -162,19 +177,43 @@ export function stopMotionCollection(): DemoGuardMotionSignal {
   }
 
   let variance: number | undefined;
+  let accelXStd: number | undefined;
+  let accelYStd: number | undefined;
+  let accelZStd: number | undefined;
   const totalSamples = state.totalSamples;
   if (totalSamples > 1) {
     let globalMagSum = 0;
     let globalMagSqSum = 0;
+    let globalXSum = 0;
+    let globalXSqSum = 0;
+    let globalYSum = 0;
+    let globalYSqSum = 0;
+    let globalZSum = 0;
+    let globalZSqSum = 0;
     let globalCount = 0;
     for (const w of state.windows) {
       globalMagSum += w.magSum;
       globalMagSqSum += w.magSqSum;
+      globalXSum += w.xSum;
+      globalXSqSum += w.xSqSum;
+      globalYSum += w.ySum;
+      globalYSqSum += w.ySqSum;
+      globalZSum += w.zSum;
+      globalZSqSum += w.zSqSum;
       globalCount += w.count;
     }
     if (globalCount > 1) {
       const mean = globalMagSum / globalCount;
       variance = (globalMagSqSum / globalCount) - mean * mean;
+      const xMean = globalXSum / globalCount;
+      const xVar = (globalXSqSum / globalCount) - xMean * xMean;
+      accelXStd = xVar > 0 ? Math.sqrt(xVar) : 0;
+      const yMean = globalYSum / globalCount;
+      const yVar = (globalYSqSum / globalCount) - yMean * yMean;
+      accelYStd = yVar > 0 ? Math.sqrt(yVar) : 0;
+      const zMean = globalZSum / globalCount;
+      const zVar = (globalZSqSum / globalCount) - zMean * zMean;
+      accelZStd = zVar > 0 ? Math.sqrt(zVar) : 0;
     }
   }
 
@@ -185,6 +224,9 @@ export function stopMotionCollection(): DemoGuardMotionSignal {
     permission: state.permission,
     sample_count: totalSamples,
     variance,
+    accel_x_std: accelXStd,
+    accel_y_std: accelYStd,
+    accel_z_std: accelZStd,
     quality,
   };
 }

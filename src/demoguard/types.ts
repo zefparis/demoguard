@@ -121,6 +121,9 @@ export interface DemoGuardMotionSignal {
   permission: PermissionStatus;
   sample_count: number;
   variance?: number;
+  accel_x_std?: number;
+  accel_y_std?: number;
+  accel_z_std?: number;
   quality: SignalQuality;
 }
 
