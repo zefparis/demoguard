@@ -667,6 +667,11 @@ body {
   opacity: 0.85;
 }
 
+.idle-start-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .idle-no-signup {
   font-size: 10px;
   color: #6E6A9E;

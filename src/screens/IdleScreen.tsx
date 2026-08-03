@@ -5,6 +5,18 @@
  * fingerprint SVG motif, "Ton empreinte d'humanité" title, 3 content chips,
  * cyan CTA, "Aucune inscription" mention.
  *
+ * DOMAIN-AWARE BEHAVIOR:
+ *   - On the public campaign domain (cognitive-signature.com):
+ *     * testScope is FORCED to 'cognitive-only' — any ?testScope= param is ignored
+ *     * If no ?sessionPublicId= is present, a traced session is generated via
+ *       POST /api/cognitive/brain-age/session (tenant: public_brainage_campaign).
+ *       On failure (rate limit, network, backend down), falls back gracefully
+ *       to the local dg_* ID — the app never blocks the user.
+ *   - On all other hostnames (demoguard.vercel.app, localhost, Vercel previews):
+ *     * All modes (voice-only, cognitive-only, full parcours) remain available
+ *     * No backend session generation call is made
+ *     * Behavior is strictly unchanged from before
+ *
  * The sessionPublicId input is hidden in public mode — it only appears
  * when ?debug=1 is in the URL. The ID resolution logic is unchanged:
  * if a valid hcs_sess_* ID arrives via ?sessionPublicId=..., it is used
@@ -16,6 +28,10 @@
 
 import { useState, useEffect } from 'react';
 import { useI18n } from '../i18n/I18nContext';
+import {
+  isPublicCampaignDomain,
+  BRAIN_AGE_SESSION_ENDPOINT,
+} from '../demoguard/constants';
 
 interface Props {
   onStart: (sessionPublicId: string, testScope?: string | null) => void;
@@ -65,25 +81,88 @@ export function IdleScreen({ onStart }: Props) {
   const [sessionId, setSessionId] = useState('');
   const [testScope, setTestScope] = useState<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
+  const [isPublicDomain, setIsPublicDomain] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const hostname = window.location.hostname;
+    const publicDomain = isPublicCampaignDomain(hostname);
+
+    setIsPublicDomain(publicDomain);
+
     const qs = params.get('sessionPublicId');
     if (qs && /^hcs_sess_[A-Za-z0-9_-]+$/.test(qs)) {
       setSessionId(qs);
     }
-    // Use getAll() for robustness against duplicate query params — take first value
-    const scopes = params.getAll('testScope');
-    console.log('[IdleScreen] testScope from URL:', scopes.length > 0 ? scopes[0] : '(not present)', 'all values:', scopes);
-    if (scopes.length > 0 && (scopes[0] === 'voice-only' || scopes[0] === 'cognitive-only')) {
-      setTestScope(scopes[0]);
+
+    // Scope resolution:
+    // - On public campaign domain: FORCE cognitive-only, ignore any ?testScope= param
+    // - On other domains: respect ?testScope= as before (voice-only, cognitive-only)
+    if (publicDomain) {
+      setTestScope('cognitive-only');
+      console.log('[IdleScreen] Public campaign domain detected — testScope forced to cognitive-only');
+    } else {
+      const scopes = params.getAll('testScope');
+      console.log('[IdleScreen] testScope from URL:', scopes.length > 0 ? scopes[0] : '(not present)', 'all values:', scopes);
+      if (scopes.length > 0 && (scopes[0] === 'voice-only' || scopes[0] === 'cognitive-only')) {
+        setTestScope(scopes[0]);
+      }
     }
+
     // Debug mode: show session ID input for admin/manual testing
     setDebugMode(params.get('debug') === '1');
   }, []);
 
+  /**
+   * On the public campaign domain, if no sessionPublicId was provided via URL,
+   * generate a traced session via the backend. Falls back gracefully on any error.
+   * On non-public domains, this is skipped entirely — no extra network call.
+   */
+  async function ensureCampaignSession(): Promise<string> {
+    if (sessionId.trim()) return sessionId.trim();
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(BRAIN_AGE_SESSION_ENDPOINT, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        console.warn('[IdleScreen] Brain-age session API returned', res.status, '— using fallback');
+        return '';
+      }
+      const data = await res.json() as { sessionPublicId?: string };
+      if (data.sessionPublicId && /^hcs_sess_[A-Za-z0-9_-]+$/.test(data.sessionPublicId)) {
+        console.log('[IdleScreen] Campaign session generated:', data.sessionPublicId);
+        return data.sessionPublicId;
+      }
+      return '';
+    } catch (err) {
+      console.warn('[IdleScreen] Brain-age session API failed:', err, '— using fallback');
+      return '';
+    }
+  }
+
   const handleStart = async () => {
-    const id = sessionId.trim() || `dg_${Date.now().toString(36)}`;
+    let id = sessionId.trim();
+
+    // On public domain: try to get a traced session from the backend
+    if (isPublicDomain && !id) {
+      setLoading(true);
+      id = await ensureCampaignSession();
+      setLoading(false);
+    }
+
+    // Fallback if no session was obtained (backend down, rate limited, non-public domain)
+    if (!id) {
+      id = `dg_${Date.now().toString(36)}`;
+    }
+
     onStart(id, testScope);
   };
 
@@ -123,8 +202,8 @@ export function IdleScreen({ onStart }: Props) {
         />
       )}
 
-      <button className="idle-start-btn" onClick={handleStart}>
-        {t('app.start')}
+      <button className="idle-start-btn" onClick={handleStart} disabled={loading}>
+        {loading ? '…' : t('app.start')}
       </button>
 
       <p className="idle-no-signup">{t('app.noSignup')}</p>
