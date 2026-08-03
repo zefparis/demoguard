@@ -11,6 +11,17 @@
   --danger: #ef4444;
   --radius: 12px;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+
+  /* Campaign palette (landing-aligned) — used by refactored screens */
+  --camp-bg: #0B0A1F;
+  --camp-cyan: #4CF2E0;
+  --camp-violet: #8A7CFF;
+  --camp-text: #F5F3FF;
+  --camp-text-secondary: #A7A3D6;
+  --camp-segment-done: #4CF2E0;
+  --camp-segment-current: #8A7CFF;
+  --camp-segment-pending: #2A2740;
+  --camp-instruction-bg: rgba(76, 242, 224, 0.08);
 }
 
 * {
@@ -483,4 +494,96 @@ body {
 @keyframes rotate {
   0%, 100% { transform: rotate(0deg); }
   50% { transform: rotate(90deg); }
+}
+
+/* ─── Segmented progress bar (optional PhaseHeader variant) ─────────── */
+
+.segment-progress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  min-height: 44px;
+}
+
+.segment-progress-bar {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.segment-progress-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--camp-segment-pending);
+  transition: background 0.2s ease;
+}
+
+.segment-progress-seg.done {
+  background: var(--camp-segment-done);
+}
+
+.segment-progress-seg.current {
+  background: var(--camp-segment-current);
+}
+
+.segment-progress-count {
+  font-size: 13px;
+  color: var(--camp-text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+/* ─── Stroop refactored styles ──────────────────────────────────────── */
+
+.stroop-instruction-card {
+  background: var(--camp-instruction-bg);
+  border-radius: 10px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--camp-text-secondary);
+  margin-bottom: 8px;
+}
+
+.stroop-instruction-card strong {
+  color: var(--camp-cyan);
+  font-weight: 700;
+}
+
+.stroop-feedback-line {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 4px;
+  transition: opacity 0.15s ease;
+}
+
+.stroop-feedback-correct {
+  color: var(--camp-cyan);
+}
+
+.stroop-feedback-incorrect {
+  color: var(--danger);
+}
+
+.stroop-feedback-ms {
+  color: var(--camp-text-secondary);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.stroop-option.stroop-option-selected {
+  outline: 2px solid var(--camp-cyan);
+  outline-offset: 2px;
+}
+
+.stroop-option-campaign {
+  border-radius: 10px !important;
 }

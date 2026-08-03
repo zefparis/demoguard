@@ -26,6 +26,9 @@
 
   "stroop.title": "Colors (Stroop)",
   "stroop.instruction": "Select the displayed COLOR",
+  "stroop.hint": "Tap the |color|, not the word",
+  "stroop.feedback.correct": "Correct",
+  "stroop.feedback.incorrect": "Wrong",
 
   "digitSpan.title": "Memory (Digit Span)",
   "digitSpan.memorize": "Memorize the sequence:",

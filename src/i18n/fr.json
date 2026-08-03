@@ -26,6 +26,9 @@
 
   "stroop.title": "Couleurs (Stroop)",
   "stroop.instruction": "Sélectionnez la COULEUR affichée",
+  "stroop.hint": "Touche la |couleur|, pas le mot",
+  "stroop.feedback.correct": "Correct",
+  "stroop.feedback.incorrect": "Faux",
 
   "digitSpan.title": "Mémoire (Digit Span)",
   "digitSpan.memorize": "Mémorisez la séquence :",
