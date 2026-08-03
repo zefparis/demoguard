@@ -27,6 +27,10 @@
   "reflex.tap": "TAP !",
   "reflex.tooEarly": "Trop tôt ! Attendez…",
   "reflex.ms": "ms",
+  "reflex.hint": "Touche dès que la zone devient |verte|",
+  "reflex.feedback.fast": "Rapide",
+  "reflex.feedback.good": "Bien",
+  "reflex.feedback.ok": "Correct",
 
   "stroop.title": "Couleurs (Stroop)",
   "stroop.instruction": "Sélectionnez la COULEUR affichée",
@@ -40,6 +44,10 @@
   "digitSpan.digits": "chiffres",
   "digitSpan.delete": "⌫ Effacer",
   "digitSpan.submit": "Valider",
+  "digitSpan.hint": "Mémorise la suite, puis |saisis-la|",
+  "digitSpan.feedback.correct": "Correct",
+  "digitSpan.feedback.incorrect": "Faux",
+  "digitSpan.feedback.expected": "Attendu :",
 
   "nback.title": "Comparaison (N-Back)",
   "nback.training": "Comparaison — Entraînement",
@@ -55,10 +63,13 @@
   "nback.correct": "✓ Correct",
   "nback.wasSame": "✗ C'était identique",
   "nback.wasDifferent": "✗ C'était différent",
+  "nback.feedback.correct": "Correct",
+  "nback.feedback.incorrect": "Faux",
 
   "trailTap.title": "Chemin (Trail Tap)",
   "trailTap.instruction": "Touchez les noeuds dans l'ordre",
   "trailTap.to": "→",
+  "trailTap.hint": "Relie les points dans l'|ordre|",
 
   "voice.title": "Voix",
   "voice.readAloud": "Lisez à voix haute :",

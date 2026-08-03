@@ -27,6 +27,10 @@
   "reflex.tap": "TAP!",
   "reflex.tooEarly": "Too early! Wait…",
   "reflex.ms": "ms",
+  "reflex.hint": "Tap as soon as the area turns |green|",
+  "reflex.feedback.fast": "Fast",
+  "reflex.feedback.good": "Good",
+  "reflex.feedback.ok": "Correct",
 
   "stroop.title": "Colors (Stroop)",
   "stroop.instruction": "Select the displayed COLOR",
@@ -40,6 +44,10 @@
   "digitSpan.digits": "digits",
   "digitSpan.delete": "⌫ Delete",
   "digitSpan.submit": "Submit",
+  "digitSpan.hint": "Memorize the sequence, then |type it|",
+  "digitSpan.feedback.correct": "Correct",
+  "digitSpan.feedback.incorrect": "Wrong",
+  "digitSpan.feedback.expected": "Expected:",
 
   "nback.title": "Comparison (N-Back)",
   "nback.training": "Comparison — Training",
@@ -55,10 +63,13 @@
   "nback.correct": "✓ Correct",
   "nback.wasSame": "✗ It was the same",
   "nback.wasDifferent": "✗ It was different",
+  "nback.feedback.correct": "Correct",
+  "nback.feedback.incorrect": "Wrong",
 
   "trailTap.title": "Path (Trail Tap)",
   "trailTap.instruction": "Tap the nodes in order",
   "trailTap.to": "→",
+  "trailTap.hint": "Connect the dots in |order|",
 
   "voice.title": "Voice",
   "voice.readAloud": "Read aloud:",

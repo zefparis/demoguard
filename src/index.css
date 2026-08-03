@@ -698,3 +698,222 @@ body {
   font-size: 14px;
   min-height: 48px;
 }
+
+/* ─── Shared campaign instruction card (reused by all task screens) ── */
+/* Already defined for Stroop: .stroop-instruction-card — we add a generic alias */
+.camp-instruction-card {
+  background: var(--camp-instruction-bg);
+  border-radius: 10px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--camp-text-secondary);
+  margin-bottom: 8px;
+}
+
+.camp-instruction-card strong {
+  color: var(--camp-cyan);
+  font-weight: 700;
+}
+
+/* ─── Campaign feedback line (reused by DigitSpan, NBack, Reflex) ──── */
+
+.camp-feedback-line {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.camp-feedback-correct {
+  color: var(--camp-cyan);
+}
+
+.camp-feedback-incorrect {
+  color: var(--danger);
+}
+
+.camp-feedback-detail {
+  color: var(--camp-text-secondary);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* ─── DigitSpan campaign styles ────────────────────────────────────── */
+
+.digit-span-input-pad-campaign {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.digit-span-input-pad-campaign button {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: none;
+  font-size: 22px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.digit-span-input-pad-campaign button:active {
+  background: var(--camp-cyan);
+  color: var(--camp-bg);
+}
+
+/* ─── Reflex campaign styles ───────────────────────────────────────── */
+
+.reflex-feedback-qualifier {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 4px;
+  min-height: 20px;
+  text-align: center;
+}
+
+/* ─── NBack campaign styles ────────────────────────────────────────── */
+
+.nback-intro-campaign {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 16px;
+}
+
+.nback-intro-title-campaign {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--camp-text);
+}
+
+.nback-intro-subtitle-campaign {
+  font-size: 16px;
+  color: var(--camp-text-secondary);
+  text-align: center;
+}
+
+.nback-example-campaign {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  width: 100%;
+}
+
+.nback-example-row-campaign {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.nback-example-letter-campaign {
+  font-size: 32px;
+  font-weight: 800;
+  min-width: 40px;
+  text-align: center;
+  color: var(--camp-text);
+}
+
+.nback-example-arrow-campaign {
+  font-size: 20px;
+  color: var(--camp-text-secondary);
+}
+
+.nback-example-badge-campaign {
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.nback-example-same-campaign {
+  background: rgba(76, 242, 224, 0.15);
+  color: var(--camp-cyan);
+}
+
+.nback-example-diff-campaign {
+  background: rgba(255, 107, 139, 0.15);
+  color: #FF6B8B;
+}
+
+.nback-instruction-campaign {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--camp-text);
+}
+
+.nback-feedback-campaign {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 16px 0;
+  animation: nback-fade 0.4s ease;
+}
+
+.nback-feedback-correct-campaign {
+  color: var(--camp-cyan);
+}
+
+.nback-feedback-incorrect-campaign {
+  color: var(--danger);
+}
+
+.nback-feedback-answered-campaign {
+  color: var(--camp-text-secondary);
+  font-size: 24px;
+}
+
+/* ─── TrailTap campaign styles ─────────────────────────────────────── */
+
+.trail-node-campaign {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 2px solid var(--camp-violet);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.trail-node-campaign.tapped {
+  background: var(--camp-cyan);
+  border-color: var(--camp-cyan);
+  color: var(--camp-bg);
+}
+
+.trail-node-campaign.wrong {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.trail-path-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}

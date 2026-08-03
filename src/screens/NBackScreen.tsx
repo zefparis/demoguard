@@ -1,10 +1,19 @@
 /**
- * DemoGuard — NBackScreen (1-back matching test) — UX overhaul
+ * DemoGuard — NBackScreen (1-back matching test) — campaign UX
  *
- * Phase 1: Intro screen with static visual example
- * Phase 2: 2 practice trials with explicit correct/incorrect feedback
- * Phase 3: Real test (8 trials) with single counter, permanent instruction,
- *          and discreet visual feedback (no answer reveal)
+ * UX refactored: segmented progress (8 segments for test phase), intro
+ * harmonized with campaign palette, test-phase feedback aligned on
+ * Stroop pattern (✓/✗ + color) while preserving the existing 400ms delay.
+ *
+ * CALIBRATION INVARIANTS (DO NOT CHANGE):
+ *   - nBackChallenge.ts untouched (NBACK_TRIALS=8, practice=2, target ratio 0.3)
+ *   - trialStartRef.current = performance.now() (line 59) taken just before
+ *     setTimeout(2000) — NO animation of letter entry (zone R4)
+ *   - RT measure: performance.now() - trialStartRef.current (line 83) — before
+ *     any feedback display
+ *   - recordNBackDecision called before feedback in test phase
+ *   - Practice feedback delay: 1200ms (unchanged)
+ *   - Test feedback delay: 400ms (unchanged — not extended)
  *
  * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
  * Patents Pending FR2514274 | FR2514546
@@ -97,7 +106,9 @@ export function NBackScreen({ session, onComplete }: Props) {
       }
     } else {
       recordNBackDecision(session, result.isHit || result.isCorrectRejection, responseMs);
-      setFeedback('answered');
+      // Aligned on Stroop pattern: ✓/✗ + color, preserving existing 400ms delay
+      const isCorrect = (config.isTarget && saidMatch) || (!config.isTarget && !saidMatch);
+      setFeedback(isCorrect ? 'correct' : 'incorrect');
       const newResults = [...results, result];
       setResults(newResults);
 
@@ -111,31 +122,31 @@ export function NBackScreen({ session, onComplete }: Props) {
     }
   };
 
-  // ── Intro Phase ──
+  // ── Intro Phase (harmonized with campaign palette) ──
   if (phase === 'intro') {
     return (
       <div className="screen">
         <PhaseHeader title={t('nback.title')} progress="5/7" progressPct={71} />
-        <div className="nback-intro">
-          <p className="nback-intro-title">
+        <div className="nback-intro-campaign">
+          <p className="nback-intro-title-campaign">
             {t('nback.intro.youWillSee')}
           </p>
-          <p className="nback-intro-subtitle">
+          <p className="nback-intro-subtitle-campaign">
             {t('nback.intro.subtitle')}
           </p>
 
-          <div className="nback-example">
-            <div className="nback-example-row">
-              <span className="nback-example-letter">C</span>
-              <span className="nback-example-arrow">→</span>
-              <span className="nback-example-letter">C</span>
-              <span className="nback-example-badge nback-example-same">{t('nback.intro.same')}</span>
+          <div className="nback-example-campaign">
+            <div className="nback-example-row-campaign">
+              <span className="nback-example-letter-campaign">C</span>
+              <span className="nback-example-arrow-campaign">→</span>
+              <span className="nback-example-letter-campaign">C</span>
+              <span className="nback-example-badge-campaign nback-example-same-campaign">{t('nback.intro.same')}</span>
             </div>
-            <div className="nback-example-row">
-              <span className="nback-example-letter">F</span>
-              <span className="nback-example-arrow">→</span>
-              <span className="nback-example-letter">B</span>
-              <span className="nback-example-badge nback-example-diff">{t('nback.intro.different')}</span>
+            <div className="nback-example-row-campaign">
+              <span className="nback-example-letter-campaign">F</span>
+              <span className="nback-example-arrow-campaign">→</span>
+              <span className="nback-example-letter-campaign">B</span>
+              <span className="nback-example-badge-campaign nback-example-diff-campaign">{t('nback.intro.different')}</span>
             </div>
           </div>
 
@@ -160,14 +171,15 @@ export function NBackScreen({ session, onComplete }: Props) {
     <div className="screen">
       <PhaseHeader
         title={isPractice ? t('nback.training') : t('nback.title')}
-        progress={`5/7 — ${trialIdx + 1}/${totalTrials}`}
-        progressPct={71}
+        progress={`5/7`}
+        segments={isPractice ? undefined : { current: trialIdx, total: totalTrials }}
+        progressPct={isPractice ? 71 : undefined}
       />
       <ErrorBoundary onRetry={() => { setTrialIdx(0); setResults([]); showTrial(); }}>
         <div
           className="nback-letter"
           style={
-            feedback === 'correct' ? { color: 'var(--success)' }
+            feedback === 'correct' ? { color: 'var(--camp-cyan)' }
             : feedback === 'incorrect' ? { color: 'var(--danger)' }
             : undefined
           }
@@ -177,7 +189,7 @@ export function NBackScreen({ session, onComplete }: Props) {
 
         {!showing && feedback === 'none' && (
           <>
-            <p className="nback-instruction">
+            <p className="nback-instruction-campaign">
               {t('nback.instruction')}
             </p>
             <div className="nback-buttons">
@@ -192,15 +204,20 @@ export function NBackScreen({ session, onComplete }: Props) {
         )}
 
         {feedback === 'correct' && (
-          <p className="nback-feedback nback-feedback-correct">{t('nback.correct')}</p>
+          <p className="nback-feedback-campaign nback-feedback-correct-campaign">
+            ✓ {isPractice ? t('nback.correct') : t('nback.feedback.correct')}
+          </p>
         )}
         {feedback === 'incorrect' && (
-          <p className="nback-feedback nback-feedback-incorrect">
-            {currentTrials[trialIdx].isTarget ? t('nback.wasSame') : t('nback.wasDifferent')}
+          <p className="nback-feedback-campaign nback-feedback-incorrect-campaign">
+            {isPractice
+              ? (currentTrials[trialIdx].isTarget ? t('nback.wasSame') : t('nback.wasDifferent'))
+              : `✗ ${t('nback.feedback.incorrect')}`
+            }
           </p>
         )}
         {feedback === 'answered' && (
-          <p className="nback-feedback nback-feedback-answered">✓</p>
+          <p className="nback-feedback-campaign nback-feedback-answered-campaign">✓</p>
         )}
       </ErrorBoundary>
     </div>
