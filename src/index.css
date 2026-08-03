@@ -600,6 +600,7 @@ body {
   gap: 16px;
   background: var(--camp-bg);
   padding: 24px 20px;
+  padding-bottom: env(safe-area-inset-bottom, 24px);
   min-height: 100dvh;
 }
 
@@ -942,6 +943,7 @@ body {
   color: #F5F3FF;
   min-height: 100dvh;
   padding: 24px 20px;
+  padding-bottom: env(safe-area-inset-bottom, 24px);
   display: flex;
   flex-direction: column;
   align-items: center;
