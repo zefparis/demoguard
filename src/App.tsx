@@ -106,6 +106,13 @@ export default function App() {
       const response = await submitDemoGuard(payload);
       dispatch({ type: 'RESPONSE_RECEIVED', response });
     } catch (err) {
+      console.error('[DemoGuard] Submission failed:', err instanceof Error ? err.message : err, {
+        sessionPublicId: state.sessionPublicId,
+        testScope: state.testScope,
+        phase: state.phase,
+        errorName: err instanceof Error ? err.name : 'unknown',
+        errorStack: err instanceof Error ? err.stack?.split('\n').slice(0, 3).join(' | ') : undefined,
+      });
       dispatch({ type: 'ERROR', reason: err instanceof Error ? err.message : 'Submission failed' });
     }
   }, [state, getPayload, getTouchDiagnostics, continuousSignals]);
