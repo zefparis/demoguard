@@ -2,9 +2,14 @@
  * DemoGuard — IdleScreen tests (sessionPublicId query param)
  *
  * 3 cases:
- * 1. Valid ?sessionPublicId=hcs_sess_... → pre-filled
- * 2. Invalid ?sessionPublicId=garbage → ignored, field empty
- * 3. No param → field empty, fallback dg_ on start
+ * 1. Valid ?sessionPublicId=hcs_sess_... → pre-filled (debug mode)
+ * 2. Invalid ?sessionPublicId=garbage → ignored, field empty (debug mode)
+ * 3. No param → field empty, fallback dg_ used on start
+ *
+ * Note: the session ID input is hidden in public mode and only visible
+ * when ?debug=1 is in the URL. Tests use &debug=1 to access the input.
+ * The button text changed from "Démarrer le contrôle" to "Commencer"
+ * (i18n key app.start) as part of the campaign UX refactoring.
  *
  * @copyright (c) 2026 Benjamin BARRERE / IA SOLUTION
  * Patents Pending FR2514274 | FR2514546
@@ -44,7 +49,7 @@ describe('IdleScreen — sessionPublicId query param', () => {
   });
 
   it('valid ?sessionPublicId=hcs_sess_abc123 pre-fills the input', async () => {
-    mockLocation('?sessionPublicId=hcs_sess_abc123DEF_-');
+    mockLocation('?sessionPublicId=hcs_sess_abc123DEF_-&debug=1');
     render(<I18nProvider><IdleScreen onStart={() => {}} /></I18nProvider>);
     const input = screen.getByPlaceholderText('Session ID (auto si vide)') as HTMLInputElement;
     // useEffect runs after render — flush
@@ -53,7 +58,7 @@ describe('IdleScreen — sessionPublicId query param', () => {
   });
 
   it('invalid ?sessionPublicId=garbage is ignored — field stays empty', async () => {
-    mockLocation('?sessionPublicId=garbage');
+    mockLocation('?sessionPublicId=garbage&debug=1');
     render(<I18nProvider><IdleScreen onStart={() => {}} /></I18nProvider>);
     const input = screen.getByPlaceholderText('Session ID (auto si vide)') as HTMLInputElement;
     await act(async () => { vi.advanceTimersByTime(0); });
@@ -64,13 +69,11 @@ describe('IdleScreen — sessionPublicId query param', () => {
     mockLocation('');
     const onStart = vi.fn();
     render(<I18nProvider><IdleScreen onStart={onStart} /></I18nProvider>);
-    const input = screen.getByPlaceholderText('Session ID (auto si vide)') as HTMLInputElement;
     await act(async () => { vi.advanceTimersByTime(0); });
-    expect(input.value).toBe('');
-    const btn = screen.getByText('Démarrer le contrôle');
+    const btn = screen.getByText('Commencer');
     const fixedDate = new Date('2026-07-11T00:00:00Z').getTime();
     vi.setSystemTime(fixedDate);
     fireEvent.click(btn);
-    expect(onStart).toHaveBeenCalledWith(`dg_${fixedDate.toString(36)}`);
+    expect(onStart).toHaveBeenCalledWith(`dg_${fixedDate.toString(36)}`, null);
   });
 });

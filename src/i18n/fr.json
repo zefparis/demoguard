@@ -1,10 +1,14 @@
 {
-  "app.title": "DemoGuard",
-  "app.subtitle": "Contrôle cognitif mobile",
-  "app.start": "Démarrer le contrôle",
+  "app.title": "Ton empreinte d'humanité",
+  "app.subtitle": "5 défis · 60 secondes",
+  "app.start": "Commencer",
   "app.sessionPlaceholder": "Session ID (auto si vide)",
   "app.langSwitch": "EN",
   "app.rotatePortrait": "Veuillez garder votre appareil en mode portrait",
+  "app.noSignup": "Aucune inscription",
+  "app.chip.reflexes": "Réflexes",
+  "app.chip.memory": "Mémoire",
+  "app.chip.gesture": "Geste",
 
   "prep.title": "Préparation",
   "prep.progress": "0/7",

@@ -1,10 +1,14 @@
 {
-  "app.title": "DemoGuard",
-  "app.subtitle": "Mobile cognitive check",
-  "app.start": "Start check",
+  "app.title": "Your human signature",
+  "app.subtitle": "5 challenges · 60 seconds",
+  "app.start": "Start",
   "app.sessionPlaceholder": "Session ID (auto if empty)",
   "app.langSwitch": "FR",
   "app.rotatePortrait": "Please keep your device in portrait mode",
+  "app.noSignup": "No sign-up",
+  "app.chip.reflexes": "Reflexes",
+  "app.chip.memory": "Memory",
+  "app.chip.gesture": "Gesture",
 
   "prep.title": "Preparation",
   "prep.progress": "0/7",
