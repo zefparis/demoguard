@@ -33,6 +33,7 @@ import {
   BRAIN_AGE_SESSION_ENDPOINT,
 } from '../demoguard/constants';
 import { FingerprintMotif } from '../components/FingerprintMotif';
+import { LanguagePill } from '../components/LanguagePill';
 
 interface Props {
   onStart: (sessionPublicId: string, testScope?: string | null) => void;
@@ -80,7 +81,7 @@ function FingerIcon({ color }: { color: string }) {
 }
 
 export function IdleScreen({ onStart }: Props) {
-  const { t, toggleLocale } = useI18n();
+  const { t } = useI18n();
   const [sessionId, setSessionId] = useState('');
   const [testScope, setTestScope] = useState<string | null>(null);
   const [debugMode, setDebugMode] = useState(false);
@@ -171,9 +172,7 @@ export function IdleScreen({ onStart }: Props) {
 
   return (
     <div className="idle-screen">
-      <button onClick={toggleLocale} className="idle-lang-switch">
-        {t('app.langSwitch')}
-      </button>
+      <LanguagePill />
 
       <FingerprintMotif size={120} className="idle-fingerprint" />
 

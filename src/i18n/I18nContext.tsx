@@ -23,8 +23,18 @@ const DICTS: Record<Locale, Record<string, string>> = {
 const STORAGE_KEY = 'dg_locale';
 
 export function detectLocale(): Locale {
+  // 1. Manual override persisted in localStorage takes precedence
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'fr' || stored === 'en') return stored;
+
+  // 2. /en path forces English default (no stored preference yet)
+  //    The user can still switch manually — the choice is then persisted.
+  const path = window.location.pathname;
+  if (path === '/en' || path === '/en/' || path.startsWith('/en/')) {
+    return 'en';
+  }
+
+  // 3. Browser language detection (fallback)
   const nav = navigator.language?.toLowerCase() ?? '';
   return nav.startsWith('en') ? 'en' : 'fr';
 }
