@@ -69,7 +69,7 @@
   "trailTap.title": "Chemin (Trail Tap)",
   "trailTap.instruction": "Touchez les noeuds dans l'ordre",
   "trailTap.to": "→",
-  "trailTap.hint": "Relie les points dans l'|ordre|",
+  "trailTap.hint": "Touche les points dans l'|ordre|",
 
   "voice.title": "Voix",
   "voice.readAloud": "Lisez à voix haute :",

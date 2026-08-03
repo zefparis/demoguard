@@ -917,3 +917,15 @@ body {
   pointer-events: none;
   z-index: 0;
 }
+
+/* Path appears ~120ms after tap — reads as a consequence of the action,
+   not an instruction to trace. Purely visual CSS transition, no JS timer. */
+.trail-path-svg polyline {
+  opacity: 0;
+  animation: trail-path-fade-in 0.25s ease 0.12s forwards;
+}
+
+@keyframes trail-path-fade-in {
+  from { opacity: 0; }
+  to { opacity: 0.4; }
+}

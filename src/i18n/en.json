@@ -69,7 +69,7 @@
   "trailTap.title": "Path (Trail Tap)",
   "trailTap.instruction": "Tap the nodes in order",
   "trailTap.to": "→",
-  "trailTap.hint": "Connect the dots in |order|",
+  "trailTap.hint": "Tap the dots in |order|",
 
   "voice.title": "Voice",
   "voice.readAloud": "Read aloud:",

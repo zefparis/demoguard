@@ -129,7 +129,6 @@ export function TrailTapScreen({ session, onComplete }: Props) {
                 fill="none"
                 stroke="var(--camp-cyan)"
                 strokeWidth="1.5"
-                strokeOpacity="0.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
