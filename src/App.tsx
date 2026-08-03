@@ -253,7 +253,7 @@ export default function App() {
         {state.phase === 'submitting' && <SubmittingScreen />}
 
         {state.phase === 'done' && (
-          <DoneScreen response={state.response} cognitiveSignals={state.cognitiveSignals} testScope={state.testScope} onReset={handleReset} />
+          <DoneScreen response={state.response} cognitiveSignals={state.cognitiveSignals} testScope={state.testScope} motionSignal={state.signals.motion} orientationSignal={state.signals.orientation} onReset={handleReset} />
         )}
 
         {state.phase === 'error' && (
