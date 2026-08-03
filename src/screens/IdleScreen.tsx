@@ -133,11 +133,13 @@ export function IdleScreen({ onStart }: Props) {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
+        body: '{}',
       });
       clearTimeout(timer);
 
       if (!res.ok) {
-        console.warn('[IdleScreen] Brain-age session API returned', res.status, '— using fallback');
+        const errBody = await res.text().catch(() => '');
+        console.warn('[IdleScreen] Brain-age session API returned', res.status, errBody || '(no body)', '— using fallback');
         return '';
       }
       const data = await res.json() as { sessionPublicId?: string };
