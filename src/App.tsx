@@ -48,6 +48,22 @@ export default function App() {
     continuousSignals.setPhase(state.phase);
   }, [state.phase]);
 
+  // Meta Pixel — fire StartTrial once per session when the user enters the
+  // first cognitive challenge (test_reflex). Binary event, no payload.
+  // Guard ref prevents double-fire under React StrictMode (effects run twice
+  // in dev) and resets when the session returns to idle so a new run can fire.
+  const startTrialFired = useRef(false);
+  useEffect(() => {
+    if (state.phase === 'test_reflex' && !startTrialFired.current) {
+      startTrialFired.current = true;
+      if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+        window.fbq('track', 'StartTrial');
+      }
+    } else if (state.phase === 'idle') {
+      startTrialFired.current = false;
+    }
+  }, [state.phase]);
+
   const sensitiveRef = useRef<SensitiveRef>({
     selfie_b64: null,
     voice_b64: null,
