@@ -33,8 +33,11 @@ const replacements = [
   ['<meta property="og:description" content="5 défis cognitifs en 60 secondes. Découvre la signature que seule un humain peut produire." />',
    '<meta property="og:description" content="5 challenges, 60 seconds. Your mind and your hand leave a signature all your own — discover yours." />'],
 
-  ['<meta property="og:image" content="https://cognitive-signature.com/og-image.png" />',
-   '<meta property="og:image" content="https://cognitive-signature.com/og-image-en.png" />'],
+  ['<meta property="og:image" content="https://cognitive-signature.com/og.image.png" />',
+   '<meta property="og:image" content="https://cognitive-signature.com/og.image-en.png" />'],
+
+  ['<meta property="og:image:alt" content="Ton empreinte d\'humanité — Cognitive Signature" />',
+   '<meta property="og:image:alt" content="What is your human signature? — Cognitive Signature" />'],
 
   ['<meta property="og:locale" content="fr_FR" />',
    '<meta property="og:locale" content="en_US" />'],
@@ -45,8 +48,8 @@ const replacements = [
   ['<meta name="twitter:description" content="5 défis cognitifs en 60 secondes. Découvre la signature que seule un humain peut produire." />',
    '<meta name="twitter:description" content="5 challenges, 60 seconds. Your mind and your hand leave a signature all your own — discover yours." />'],
 
-  ['<meta name="twitter:image" content="https://cognitive-signature.com/og-image.png" />',
-   '<meta name="twitter:image" content="https://cognitive-signature.com/og-image-en.png" />'],
+  ['<meta name="twitter:image" content="https://cognitive-signature.com/og.image.png" />',
+   '<meta name="twitter:image" content="https://cognitive-signature.com/og.image-en.png" />'],
 
   ['<meta name="description" content="Ton empreinte d\'humanité — 5 défis cognitifs en 60 secondes. Aucune inscription." />',
    '<meta name="description" content="Your human signature — 5 challenges, 60 seconds. No sign-up." />'],
