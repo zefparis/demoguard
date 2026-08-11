@@ -65,13 +65,15 @@ export default function App() {
   }, [state.phase]);
 
   // Meta Pixel — fire SessionComplete once per session when the submission
-  // succeeds and the session is written to session_labels (phase === 'done'
-  // with response.ok). Custom event with test_scope + session_id payload.
+  // succeeds and the session is written to session_labels. Reaching phase
+  // 'done' (via RESPONSE_RECEIVED) already means submitDemoGuard returned
+  // HTTP 200 — response.ok is the fusion decision (APPROVED/REVIEW/REJECTED),
+  // not submission success, so we fire regardless of it.
   // Guard ref prevents double-fire under React StrictMode (effects run twice
   // in dev) and resets when the session returns to idle so a new run can fire.
   const sessionCompleteFired = useRef(false);
   useEffect(() => {
-    if (state.phase === 'done' && state.response?.ok && !sessionCompleteFired.current) {
+    if (state.phase === 'done' && !sessionCompleteFired.current) {
       sessionCompleteFired.current = true;
       if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
         window.fbq('trackCustom', 'SessionComplete', {
@@ -82,7 +84,7 @@ export default function App() {
     } else if (state.phase === 'idle') {
       sessionCompleteFired.current = false;
     }
-  }, [state.phase, state.response, state.testScope, state.sessionPublicId]);
+  }, [state.phase, state.testScope, state.sessionPublicId]);
 
   const sensitiveRef = useRef<SensitiveRef>({
     selfie_b64: null,
