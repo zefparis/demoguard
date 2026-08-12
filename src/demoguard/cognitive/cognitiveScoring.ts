@@ -42,6 +42,13 @@ function isModuleCoherent(signal: { quality: CognitiveQuality } | null): boolean
   return signal !== null && signal.quality === 'ok';
 }
 
+// KNOWN LIMITATION (documented, not fixed — Aug 2026): this function hardcodes
+// a 6-module denominator (includes vocal_ran) regardless of test_scope. For
+// cognitive-only sessions this understates consistency_score by ~0.05 vs a
+// full session, even at perfect performance. Deliberately not fixed to avoid
+// breaking historical comparability of cognitive_sessions data. Do not "fix"
+// this without updating both repos in lockstep and planning for historical
+// data migration — see conversation history / Benji for context.
 export function computeCognitiveSummary(signals: CognitiveSignals): CognitiveSummary {
   const modules = [signals.reflex, signals.stroop, signals.digit_span, signals.n_back, signals.trail_tap, signals.vocal_ran];
   const completedModules = modules.filter((m) => m !== null).length;
