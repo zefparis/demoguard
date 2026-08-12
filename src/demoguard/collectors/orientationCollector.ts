@@ -48,6 +48,7 @@ interface OrientationWindow {
 let streamingState: {
   running: boolean;
   permission: PermissionStatus;
+  permissionRequested: boolean;
   windowStart: number;
   currentWindow: OrientationWindow;
   windows: OrientationWindow[];
@@ -75,12 +76,13 @@ function flushWindow(): void {
   streamingState.windowStart = performance.now();
 }
 
-export function startOrientationCollection(permission: PermissionStatus = 'granted'): void {
+export function startOrientationCollection(permission: PermissionStatus = 'granted', permissionRequested: boolean = false): void {
   if (streamingState?.running) return;
   if (!isOrientationSupported()) {
     streamingState = {
       running: true,
       permission: 'unsupported',
+      permissionRequested,
       windowStart: 0,
       currentWindow: newWindow(),
       windows: [],
@@ -98,6 +100,7 @@ export function startOrientationCollection(permission: PermissionStatus = 'grant
   const state = {
     running: true,
     permission,
+    permissionRequested,
     windowStart,
     currentWindow: newWindow(),
     windows: [] as OrientationWindow[],
@@ -168,6 +171,7 @@ export function stopOrientationCollection(): DemoGuardOrientationSignal {
     return {
       supported: false,
       permission: 'unsupported',
+      permission_requested: state.permissionRequested,
       sample_count: 0,
       changes: 0,
       quality: 'unsupported',
@@ -178,6 +182,7 @@ export function stopOrientationCollection(): DemoGuardOrientationSignal {
     return {
       supported: true,
       permission: 'denied',
+      permission_requested: state.permissionRequested,
       sample_count: 0,
       changes: 0,
       quality: 'missing',
@@ -189,6 +194,7 @@ export function stopOrientationCollection(): DemoGuardOrientationSignal {
   return {
     supported: true,
     permission: state.permission,
+    permission_requested: state.permissionRequested,
     sample_count: state.totalSamples,
     changes: state.totalChanges,
     quality,

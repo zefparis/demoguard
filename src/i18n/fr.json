@@ -13,6 +13,8 @@
   "prep.title": "Préparation",
   "prep.progress": "0/7",
   "prep.collecting": "Collecte des informations appareil…",
+  "prep.ready": "Appareil prêt. Autorisez l'accès aux capteurs pour continuer.",
+  "prep.continue": "Continuer",
 
   "camera.title": "Photo selfie",
   "camera.requesting": "Demande de caméra…",

@@ -119,6 +119,8 @@ export interface DemoGuardVoiceDiagnostic {
 export interface DemoGuardMotionSignal {
   supported: boolean;
   permission: PermissionStatus;
+  /** true if DeviceMotionEvent.requestPermission() was called (iOS 13+), false if auto-granted (Android/desktop) */
+  permission_requested?: boolean;
   sample_count: number;
   variance?: number;
   accel_x_std?: number;
@@ -130,6 +132,8 @@ export interface DemoGuardMotionSignal {
 export interface DemoGuardOrientationSignal {
   supported: boolean;
   permission: PermissionStatus;
+  /** true if DeviceOrientationEvent.requestPermission() was called (iOS 13+), false if auto-granted (Android/desktop) */
+  permission_requested?: boolean;
   sample_count: number;
   changes: number;
   quality: SignalQuality;

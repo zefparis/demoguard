@@ -55,6 +55,7 @@ interface MotionWindow {
 let streamingState: {
   running: boolean;
   permission: PermissionStatus;
+  permissionRequested: boolean;
   windowStart: number;
   currentWindow: MotionWindow;
   windows: MotionWindow[];
@@ -78,12 +79,13 @@ function flushWindow(): void {
   streamingState.windowStart = performance.now();
 }
 
-export function startMotionCollection(permission: PermissionStatus = 'granted'): void {
+export function startMotionCollection(permission: PermissionStatus = 'granted', permissionRequested: boolean = false): void {
   if (streamingState?.running) return;
   if (!isMotionSupported()) {
     streamingState = {
       running: true,
       permission: 'unsupported',
+      permissionRequested,
       windowStart: 0,
       currentWindow: newWindow(),
       windows: [],
@@ -97,6 +99,7 @@ export function startMotionCollection(permission: PermissionStatus = 'granted'):
   const state = {
     running: true,
     permission,
+    permissionRequested,
     windowStart,
     currentWindow: newWindow(),
     windows: [] as MotionWindow[],
@@ -162,6 +165,7 @@ export function stopMotionCollection(): DemoGuardMotionSignal {
     return {
       supported: false,
       permission: 'unsupported',
+      permission_requested: state.permissionRequested,
       sample_count: 0,
       quality: 'unsupported',
     };
@@ -171,6 +175,7 @@ export function stopMotionCollection(): DemoGuardMotionSignal {
     return {
       supported: true,
       permission: 'denied',
+      permission_requested: state.permissionRequested,
       sample_count: 0,
       quality: 'missing',
     };
@@ -222,6 +227,7 @@ export function stopMotionCollection(): DemoGuardMotionSignal {
   return {
     supported: true,
     permission: state.permission,
+    permission_requested: state.permissionRequested,
     sample_count: totalSamples,
     variance,
     accel_x_std: accelXStd,

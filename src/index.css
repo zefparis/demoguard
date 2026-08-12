@@ -673,6 +673,31 @@ body {
   cursor: wait;
 }
 
+.prep-continue-btn {
+  width: 100%;
+  max-width: 280px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  border: none;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 48px;
+  background: var(--camp-cyan);
+  color: var(--camp-bg);
+  transition: opacity 0.15s;
+  margin-top: 16px;
+}
+
+.prep-continue-btn:active {
+  opacity: 0.85;
+}
+
+.prep-continue-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .idle-no-signup {
   font-size: 10px;
   color: #6E6A9E;

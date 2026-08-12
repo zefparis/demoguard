@@ -188,8 +188,12 @@ export default function App() {
           <PrepScreen
             onDeviceCollected={(device) => dispatch({ type: 'DEVICE_COLLECTED', device })}
             onPermissionsCollected={(permissions) => dispatch({ type: 'PERMISSIONS_COLLECTED', permissions })}
-            onContinuousSignalsStart={async (perms) => {
-              await continuousSignals.start({ motion: perms.motion, orientation: perms.orientation });
+            onUserContinue={async (perms) => {
+              const sensorPerms = await continuousSignals.requestSensorPermissions({
+                motion: perms.motion,
+                orientation: perms.orientation,
+              });
+              await continuousSignals.start(sensorPerms);
             }}
             onReady={() => dispatch({ type: 'PREP_READY' })}
             onError={(reason) => dispatch({ type: 'ERROR', reason })}
