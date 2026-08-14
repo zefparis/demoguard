@@ -187,7 +187,26 @@ export function NBackScreen({ session, onComplete }: Props) {
           {showing ? currentTrials[trialIdx].letter : '—'}
         </div>
 
-        {!showing && feedback === 'none' && (
+        {!showing && feedback === 'none' && trialIdx === 0 && (
+          <>
+            <p className="nback-instruction-campaign">
+              {t('nback.firstTrialHint')}
+            </p>
+            <div className="nback-buttons">
+              <button
+                className="btn"
+                onClick={() => {
+                  setTrialIdx(1);
+                  showTrial();
+                }}
+              >
+                {t('nback.firstTrialContinue')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {!showing && feedback === 'none' && trialIdx > 0 && (
           <>
             <p className="nback-instruction-campaign">
               {t('nback.instruction')}

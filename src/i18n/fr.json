@@ -60,6 +60,8 @@
   "nback.intro.practiceInfo": "2 essais d'entraînement, puis le test réel.",
   "nback.intro.start": "Commencer l'entraînement",
   "nback.instruction": "Est-ce la même lettre qu'avant ?",
+  "nback.firstTrialHint": "Ceci est la première lettre — mémorise-la. Pas de comparaison pour l'instant.",
+  "nback.firstTrialContinue": "Continuer",
   "nback.no": "Non",
   "nback.yes": "Oui",
   "nback.correct": "✓ Correct",
