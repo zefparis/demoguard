@@ -184,7 +184,7 @@ export function NBackScreen({ session, onComplete }: Props) {
             : undefined
           }
         >
-          {showing ? currentTrials[trialIdx].letter : '—'}
+          {showing ? currentTrials[trialIdx].letter : ''}
         </div>
 
         {!showing && feedback === 'none' && trialIdx === 0 && (
