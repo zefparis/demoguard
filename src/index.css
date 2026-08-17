@@ -949,6 +949,7 @@ body {
   border: 2px solid var(--camp-violet);
   cursor: pointer;
   touch-action: none;
+  transform: translate(-50%, -50%);
 }
 
 .trail-node-campaign.tapped {
