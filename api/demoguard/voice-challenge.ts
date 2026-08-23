@@ -54,7 +54,9 @@ function getAllowedOrigins(): Set<string> {
 }
 
 function getUpstreamUrl(): string {
-  const base = process.env.HYBRID_VECTOR_API_URL || 'https://hybrid-vector-api-owc4.onrender.com';
+  // STEP 4 MIGRATION: route through the Cloudflare Worker (/hv/* prefix)
+  // instead of calling hybrid-vector-api directly on Render.
+  const base = process.env.HYBRID_VECTOR_API_URL || 'https://api.hcs-u7.org/hv';
   return `${base.replace(/\/+$/, '')}/demoguard/voice-challenge`;
 }
 
@@ -182,6 +184,7 @@ export default async function demoguardVoiceChallengeHandler(
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': apiKey,
+        'X-Source-App': 'demoguard',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
