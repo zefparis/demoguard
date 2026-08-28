@@ -49,6 +49,12 @@ function isModuleCoherent(signal: { quality: CognitiveQuality } | null): boolean
 // breaking historical comparability of cognitive_sessions data. Do not "fix"
 // this without updating both repos in lockstep and planning for historical
 // data migration — see conversation history / Benji for context.
+// Reference: INVESTIGATION_BRAIN_ADMIN.md §5.3 (⚠️ incoherence). Note:
+// LiveGuard (liveguard/src/liveguard/cognitive/cognitiveScoring.ts) has
+// already moved to a 5-module denominator. This demoguard version keeps 6
+// for historical comparability. The distortion affects consistency_score
+// only (not depth_score), and consistency_score is not displayed on the
+// admin Brain page, so there is no visible impact on the current dashboard.
 export function computeCognitiveSummary(signals: CognitiveSignals): CognitiveSummary {
   const modules = [signals.reflex, signals.stroop, signals.digit_span, signals.n_back, signals.trail_tap, signals.vocal_ran];
   const completedModules = modules.filter((m) => m !== null).length;
